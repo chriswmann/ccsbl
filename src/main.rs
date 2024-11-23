@@ -4,6 +4,7 @@ use file::load_file;
 use tracing::debug;
 
 mod cli;
+mod errors;
 mod file;
 
 fn main() {
