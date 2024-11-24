@@ -17,5 +17,11 @@ fn main() {
 
     let file_path = args.input_file_path;
     let code = load_file(file_path.as_path());
+    match &code {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+        }
+    }
     debug!("Code: {:#?}", code);
 }
