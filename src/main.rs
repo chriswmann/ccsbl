@@ -4,8 +4,11 @@ use file::load_file;
 use tracing::debug;
 
 mod cli;
+mod compiler;
 mod errors;
 mod file;
+mod instructions;
+mod ops;
 
 fn main() {
     tracing_subscriber::fmt::init();
