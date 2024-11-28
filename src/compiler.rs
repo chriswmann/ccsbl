@@ -10,12 +10,11 @@ enum Token {
     Unknown(String),
 }
 
-fn tokenize(content: &str) -> Result<Vec<Token>, String> {
-    let result: Vec<Token> = content
-        .trim()
-        .split_whitespace()
+fn tokenize(lines: Vec<String>) -> Result<Vec<Token>, String> {
+    let result: Vec<Token> = lines
+        .iter()
         .filter(|raw_token| !raw_token.trim().is_empty())
-        .map(|raw_token| match raw_token {
+        .map(|raw_token| match raw_token.as_str() {
             "pop" => Token::Op(Op::Pop),
             "add" => Token::Op(Op::Add),
             "inc" => Token::Op(Op::Inc),
@@ -134,7 +133,7 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
     Ok(result)
 }
 
-pub fn compile(content: &str) -> Result<Vec<Instr>, String> {
+pub fn compile(content: Vec<String>) -> Result<Vec<Instr>, String> {
     let tokens = tokenize(content)?;
     println!("{:#?}", tokens);
     let instrs = compile_to_instrs(&tokens)?;
