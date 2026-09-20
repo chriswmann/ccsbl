@@ -22,7 +22,7 @@ fn main() {
     match &lines {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("Error: {:?}", e);
+            eprintln!("{e}");
         }
     }
     debug!("Code: {:#?}", lines);
@@ -35,9 +35,9 @@ fn main() {
         {
             eprintln!("Error: mclb file supplied, refusing to compile bytecode. Did you mean to execute it?");
         }
-        bytecode = match compiler::compile(lines.unwrap()) {
+        bytecode = match compiler::compile(&lines.unwrap()) {
             Err(err) => {
-                eprintln!("Error compiling '{:?}': {}", args.file, err);
+                eprintln!("Error compiling '{}': {}", args.file.display(), err);
                 process::exit(1);
             }
             Ok(val) => val,

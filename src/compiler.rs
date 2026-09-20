@@ -10,7 +10,7 @@ enum Token {
     Unknown(String),
 }
 
-fn tokenize(lines: Vec<String>) -> Result<Vec<Token>, String> {
+fn tokenise(lines: &[String]) -> Result<Vec<Token>, Error> {
     let result: Vec<Token> = lines
         .iter()
         .filter(|raw_token| !raw_token.trim().is_empty())
@@ -38,7 +38,7 @@ fn tokenize(lines: Vec<String>) -> Result<Vec<Token>, String> {
         .collect();
     for token in &result {
         if let Token::Unknown(val) = token {
-            return Err(format!("Unexpected token: '{}'", val));
+            return Err(Error::ValueUnexpected(val.clone()));
         }
     }
     Ok(result)
@@ -69,7 +69,9 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
             [Token::Label(name), rest @ ..] => {
                 tail = rest;
                 if labels.contains_key(name) {
-                    return Err(format!("Label '{}' defined more than once", name));
+                    return Err(Error::Parse(format!(
+                        "Label '{name}' defined more than once"
+                    )));
                 }
                 // insert (name, address of next instr)
                 labels.insert(name.clone(), abstr_result.len());
@@ -79,7 +81,7 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
                 abstr_result.push(AbstractInstr {
                     op: *op,
                     value: AbstractValue::None,
-                })
+                });
             }
             // anything with argument
             [Token::Op(op), Token::Value(value), rest @ ..] if *op >= Op::Push => {
@@ -87,7 +89,7 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
                 abstr_result.push(AbstractInstr {
                     op: *op,
                     value: AbstractValue::Integer(*value),
-                })
+                });
             }
             // jumps
             [Token::Op(op), Token::Label(value), rest @ ..] if *op > Op::Push => {
@@ -95,12 +97,16 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
                 abstr_result.push(AbstractInstr {
                     op: *op,
                     value: AbstractValue::Label(value.clone()),
-                })
+                });
             }
-            tok => return Err(format!("Invalid token! Expected Op, got '{:?}'", tok)),
+            tok => {
+                return Err(Error::Parse(format!(
+                    "Invalid token! Expected Op, got '{tok:?}'"
+                )))
+            }
         }
     }
-    println!("{:#?}", abstr_result);
+    println!("{abstr_result:#?}");
     // resolve labels
     for instr in &mut abstr_result {
         if let AbstractInstr {
@@ -111,11 +117,11 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
             if labels.contains_key(name) {
                 instr.value = AbstractValue::Integer(*labels.get(name).unwrap() as i64);
             } else {
-                return Err(format!("Label '{}' is not defined", name));
+                return Err(Error::Parse(format!("Label '{name}' is not defined")));
             }
         }
     }
-    println!("{:#?}", abstr_result);
+    println!("{abstr_result:#?}");
     // concretize to real [`Instr`]
     let result = abstr_result
         .iter()
@@ -124,7 +130,7 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
             value: match abstr_instr.value {
                 AbstractValue::Integer(int) => int,
                 AbstractValue::None => 0,
-                _ => {
+                AbstractValue::Label(_) => {
                     panic!("Should never happen: Non-abstract value in concretization step")
                 }
             },
@@ -133,10 +139,10 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
     Ok(result)
 }
 
-pub fn compile(content: Vec<String>) -> Result<Vec<Instr>, String> {
-    let tokens = tokenize(content)?;
-    println!("{:#?}", tokens);
+pub fn compile(content: &[String]) -> Result<Vec<Instr>, Error> {
+    let tokens = tokenise(content)?;
+    println!("{tokens:#?}");
     let instrs = compile_to_instrs(&tokens)?;
-    println!("{:#?}", instrs);
+    println!("{instrs:#?}");
     Ok(instrs)
 }
