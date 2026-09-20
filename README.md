@@ -1,4 +1,19 @@
 # Chris's Compiled Stack-Based Language
 
-So heavily based on [lionkor's mcl-rs](<https://github.com/lionkor/mcl-rs/tree/master>),
-it's almost a fork.
+## Example
+
+```ccl
+1 2 add       # ( -- 3 )
+print         # ( 3 -- )        displays 3
+10 4 sub      # ( -- 6 )
+pop           # ( 6 -- )        discards 6, nothing displayed
+1             # ( -- 1 )        initial counter
+start:
+dup add       # ( n -- 2n )     double the counter
+dup 9 gt      # ( n -- n bool ) test n > 9
+jt end
+jmp start
+end:
+print         # ( n -- )        displays the final value (16)
+halt
+```

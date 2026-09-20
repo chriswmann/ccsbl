@@ -1,152 +1,37 @@
-use std::collections::HashMap;
-
-use crate::{errors::Error, instructions::Instr, ops::Op};
+use crate::{errors::Error, ops::Op};
+use tracing::debug;
 
 #[derive(Debug)]
-enum Token {
+pub enum Token {
     Op(Op),
     Value(i64),
     Label(String),
-    Unknown(String),
 }
 
-fn tokenise(lines: &[String]) -> Result<Vec<Token>, Error> {
-    let result: Vec<Token> = lines
-        .iter()
-        .filter(|raw_token| !raw_token.trim().is_empty())
-        .map(|raw_token| match raw_token.as_str() {
-            "pop" => Token::Op(Op::Pop),
-            "add" => Token::Op(Op::Add),
-            "inc" => Token::Op(Op::Inc),
-            "dec" => Token::Op(Op::Dec),
-            "sub" => Token::Op(Op::Sub),
-            "mul" => Token::Op(Op::Mul),
-            "div" => Token::Op(Op::Div),
-            "print" => Token::Op(Op::Print),
-            "push" => Token::Op(Op::Push),
-            val => {
-                if let Ok(int) = val.parse::<i64>() {
-                    Token::Value(int)
-                } else if val.starts_with(':') {
-                    // label
-                    Token::Label(val.strip_prefix(':').unwrap().to_string())
+// Tokenise the code. At the moment we don't handle comments
+// or care about the type of whitespace. We only have a single
+// type (i64) and a limited set of instructions.
+pub fn tokenise(code: &str) -> Result<Vec<Token>, Error> {
+    let mut tokens = Vec::new();
+    for s in code.split_whitespace() {
+        match s {
+            s if s.ends_with(':') => {
+                debug!("Token: {s}");
+                tokens.push(Token::Label(s.to_owned()));
+            }
+            "add" | "+" => tokens.push(Token::Op(Op::Add)),
+            "sub" | "-" => tokens.push(Token::Op(Op::Sub)),
+            "pop" => tokens.push(Token::Op(Op::Pop)),
+            "print" => tokens.push(Token::Op(Op::Print)),
+            "halt" => tokens.push(Token::Op(Op::Halt)),
+            other => {
+                if let Ok(num) = &str::parse::<i64>(other) {
+                    tokens.push(Token::Value(*num));
                 } else {
-                    Token::Unknown(val.to_string())
+                    return Err(Error::SyntaxError(other.to_string()));
                 }
-            }
-        })
-        .collect();
-    for token in &result {
-        if let Token::Unknown(val) = token {
-            return Err(Error::ValueUnexpected(val.clone()));
-        }
-    }
-    Ok(result)
-}
-
-#[derive(Debug)]
-enum AbstractValue {
-    None,
-    Integer(i64),
-    Label(String),
-}
-
-#[derive(Debug)]
-struct AbstractInstr {
-    op: Op,
-    value: AbstractValue,
-}
-
-fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, Error> {
-    let mut abstr_result: Vec<AbstractInstr> = Vec::new();
-    let mut labels: HashMap<String, usize> = HashMap::new();
-    let mut tail = tokens;
-    loop {
-        if tail.is_empty() {
-            break;
-        }
-        match tail {
-            [Token::Label(name), rest @ ..] => {
-                tail = rest;
-                if labels.contains_key(name) {
-                    return Err(Error::Parse(format!(
-                        "Label '{name}' defined more than once"
-                    )));
-                }
-                // insert (name, address of next instr)
-                labels.insert(name.clone(), abstr_result.len());
-            }
-            [Token::Op(op), rest @ ..] if *op < Op::Push => {
-                tail = rest;
-                abstr_result.push(AbstractInstr {
-                    op: *op,
-                    value: AbstractValue::None,
-                });
-            }
-            // anything with argument
-            [Token::Op(op), Token::Value(value), rest @ ..] if *op >= Op::Push => {
-                tail = rest;
-                abstr_result.push(AbstractInstr {
-                    op: *op,
-                    value: AbstractValue::Integer(*value),
-                });
-            }
-            // jumps
-            [Token::Op(op), Token::Label(value), rest @ ..] if *op > Op::Push => {
-                tail = rest;
-                abstr_result.push(AbstractInstr {
-                    op: *op,
-                    value: AbstractValue::Label(value.clone()),
-                });
-            }
-            tok => {
-                return Err(Error::Parse(format!(
-                    "Invalid token! Expected Op, got '{tok:?}'"
-                )))
             }
         }
     }
-    println!("{abstr_result:#?}");
-    // resolve labels
-    for instr in &mut abstr_result {
-        if let AbstractInstr {
-            op: _,
-            value: AbstractValue::Label(name),
-        } = instr
-        {
-            if labels.contains_key(name) {
-                let value = *labels.get(name).expect(
-                    "Should be able to get `{name}` as we have checked for it using `contains_key`",
-                );
-                let value = i64::try_from(value)?;
-                instr.value = AbstractValue::Integer(value);
-            } else {
-                return Err(Error::Parse(format!("Label '{name}' is not defined")));
-            }
-        }
-    }
-    println!("{abstr_result:#?}");
-    // concretize to real [`Instr`]
-    let result = abstr_result
-        .iter()
-        .map(|abstr_instr| Instr {
-            op: abstr_instr.op,
-            value: match abstr_instr.value {
-                AbstractValue::Integer(int) => int,
-                AbstractValue::None => 0,
-                AbstractValue::Label(_) => {
-                    panic!("Should never happen: Non-abstract value in concretization step")
-                }
-            },
-        })
-        .collect();
-    Ok(result)
-}
-
-pub fn compile(content: &[String]) -> Result<Vec<Instr>, Error> {
-    let tokens = tokenise(content)?;
-    println!("{tokens:#?}");
-    let instrs = compile_to_instrs(&tokens)?;
-    println!("{instrs:#?}");
-    Ok(instrs)
+    Ok(tokens)
 }

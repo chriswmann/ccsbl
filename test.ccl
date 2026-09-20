@@ -1,3 +1,7 @@
-push 1
-push 2
+1
+2
+3
 print
+pop
+print
+halt

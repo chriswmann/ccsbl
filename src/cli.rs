@@ -6,12 +6,6 @@ pub struct Cli {
     /// The file to compile or execute
     #[arg(short, long, value_parser = validate_extension)]
     pub file: path::PathBuf,
-
-    #[arg(short, long, default_value_t = false)]
-    pub compile: bool,
-
-    #[arg(short, long, default_value_t = false)]
-    pub execute: bool,
 }
 
 fn validate_extension(path: &str) -> Result<path::PathBuf, String> {

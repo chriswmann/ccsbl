@@ -1,6 +1,5 @@
 use clap::Parser;
-use file::load_file;
-use std::process;
+use std::process::exit;
 
 use tracing::debug;
 
@@ -8,7 +7,6 @@ mod cli;
 mod compiler;
 mod errors;
 mod file;
-mod instructions;
 mod ops;
 
 fn main() {
@@ -16,25 +14,21 @@ fn main() {
     let args = cli::Cli::parse();
     debug!("Args: {:#?}", &args);
 
-    let lines = load_file(args.file.clone());
-    match &lines {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("{e}");
+    let code = match file::load_file(&args.file) {
+        Ok(content) => content,
+        Err(err) => {
+            eprintln!("{err}");
+            exit(1);
         }
-    }
-    debug!("Code: {:#?}", lines);
+    };
+    dbg!(&code);
 
-    let mut bytecode = vec![];
-
-    if args.compile {
-        bytecode = match compiler::compile(&lines.unwrap()) {
-            Err(err) => {
-                eprintln!("Error compiling '{}': {}", args.file.display(), err);
-                process::exit(1);
-            }
-            Ok(val) => val,
-        };
-    }
-    debug!("Bytecode: {:#?}", bytecode);
+    let tokens = match compiler::tokenise(&code) {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            eprintln!("{err}");
+            exit(1);
+        }
+    };
+    dbg!(&tokens);
 }
