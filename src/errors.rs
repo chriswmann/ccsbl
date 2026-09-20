@@ -1,5 +1,14 @@
 #[derive(thiserror::Error, Debug)]
-pub enum CcsblError<'a> {
+pub enum Error {
     #[error("Invalid input file path: {0}")]
-    FileNotFound(&'a std::path::Path),
+    FileNotFound(std::path::PathBuf),
+
+    #[error("Error parsing input: {0}")]
+    Parse(String),
+
+    #[error("Value out of range: {0}")]
+    ValueOutOfRange(#[from] std::num::TryFromIntError),
+
+    #[error("Unexpected value error: {0}")]
+    ValueUnexpected(String),
 }

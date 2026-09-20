@@ -1,9 +1,11 @@
 use std::fs;
 use std::path;
 
-pub fn load_file(file_path: &path::Path) -> Result<Vec<String>, crate::errors::CcsblError<'_>> {
-    match fs::read_to_string(file_path) {
+use crate::errors::Error;
+
+pub fn load_file(file_path: path::PathBuf) -> Result<Vec<String>, Error> {
+    match fs::read_to_string(&file_path) {
         Ok(content) => Ok(content.lines().map(&str::to_owned).collect()),
-        Err(_) => Err(crate::errors::CcsblError::FileNotFound(file_path)),
+        Err(_) => Err(crate::errors::Error::FileNotFound(file_path)),
     }
 }

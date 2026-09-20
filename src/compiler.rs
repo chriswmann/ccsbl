@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{instructions::Instr, ops::Op};
+use crate::{errors::Error, instructions::Instr, ops::Op};
 
 #[derive(Debug)]
 enum Token {
@@ -57,7 +57,7 @@ struct AbstractInstr {
     value: AbstractValue,
 }
 
-fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
+fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, Error> {
     let mut abstr_result: Vec<AbstractInstr> = Vec::new();
     let mut labels: HashMap<String, usize> = HashMap::new();
     let mut tail = tokens;
@@ -115,7 +115,11 @@ fn compile_to_instrs(tokens: &[Token]) -> Result<Vec<Instr>, String> {
         } = instr
         {
             if labels.contains_key(name) {
-                instr.value = AbstractValue::Integer(*labels.get(name).unwrap() as i64);
+                let value = *labels.get(name).expect(
+                    "Should be able to get `{name}` as we have checked for it using `contains_key`",
+                );
+                let value = i64::try_from(value)?;
+                instr.value = AbstractValue::Integer(value);
             } else {
                 return Err(Error::Parse(format!("Label '{name}' is not defined")));
             }
