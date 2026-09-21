@@ -2,6 +2,9 @@ use clap::Parser;
 use std::process::exit;
 
 use tracing::debug;
+use tracing_subscriber::EnvFilter;
+
+use crate::errors::Error;
 
 mod cli;
 mod compiler;
@@ -10,25 +13,28 @@ mod file;
 mod ops;
 
 fn main() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
+        )
+        .init();
+    match run() {
+        Ok(()) => {}
+        Err(err) => {
+            eprintln!("{err}");
+            exit(1);
+        }
+    }
+}
+
+fn run() -> Result<(), Error> {
     let args = cli::Cli::parse();
     debug!("Args: {:#?}", &args);
 
-    let code = match file::load_file(&args.file) {
-        Ok(content) => content,
-        Err(err) => {
-            eprintln!("{err}");
-            exit(1);
-        }
-    };
-    dbg!(&code);
+    let code = file::load_file(&args.file)?;
+    debug!("{}", &code);
 
-    let tokens = match compiler::tokenise(&code) {
-        Ok(tokens) => tokens,
-        Err(err) => {
-            eprintln!("{err}");
-            exit(1);
-        }
-    };
-    dbg!(&tokens);
+    let tokens = compiler::tokenise(&code)?;
+    debug!("{:?}", &tokens);
+    Ok(())
 }
