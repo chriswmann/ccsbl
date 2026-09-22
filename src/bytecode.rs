@@ -67,7 +67,10 @@ impl Instr {
         }
     }
 
-    pub fn decode(bytes: &[u8], offset: usize) -> Result<(Self, usize), Error> {
+    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), Error> {
+        let bytes = code
+            .get(offset..)
+            .ok_or(Error::TruncatedByteCode { offset })?;
         let (&opcode, rest) = bytes
             .split_first()
             .ok_or(Error::TruncatedByteCode { offset })?;
