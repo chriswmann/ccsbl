@@ -30,7 +30,7 @@ pub enum Op {
     Halt = 0xFF,  // end program
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Instr {
     Push(i64),
     Pop,
@@ -115,4 +115,73 @@ impl Instr {
 #[derive(Debug)]
 pub struct Program {
     code: Vec<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_uses_little_endian_for_pushed_value_and_jmp_offset() {
+        // Arrange expected
+        let mut expected = vec![Op::Push as u8];
+        let value = 42_i64.to_le_bytes();
+        expected.extend_from_slice(&value);
+        expected.push(Op::Jmp as u8);
+        let label = 100_u32.to_le_bytes();
+        expected.extend_from_slice(&label);
+        // Arrange SUT
+        let push = Instr::Push(42);
+        let jump = Instr::Jmp(100_u32);
+        let mut out: Vec<u8> = Vec::new();
+        // Act
+        push.encode(&mut out);
+        jump.encode(&mut out);
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn roundtrip_encode_decode() {
+        let mut bytes = Vec::new();
+        let instructions = vec![Instr::Push(1), Instr::Pop, Instr::Jmp(3), Instr::Halt];
+        for instr in &instructions {
+            instr.encode(&mut bytes);
+        }
+        let mut offset = 0;
+        for expected in instructions {
+            let (instr, eaten) = Instr::decode(&bytes, offset).unwrap();
+            assert_eq!(instr, expected);
+            offset += eaten;
+        }
+        assert_eq!(offset, bytes.len());
+    }
+
+    #[test]
+    fn decode_returns_truncated_byte_error_when_bytes_are_truncated() {
+        let code = &[0x00, 1, 0];
+        let offset = 0;
+        match Instr::decode(code, offset) {
+            Err(Error::TruncatedByteCode {
+                offset: offset_result,
+            }) => {
+                assert_eq!(offset_result, offset);
+            }
+            Err(err) => panic!("Truncated code returned wrong error: {err}"),
+            Ok((instr, _)) => panic!("Truncated code decoded to {instr}"),
+        }
+    }
+
+    #[test]
+    fn decode_returns_unknown_opcode_when_opcode_bytes_not_recognised() {
+        let code = &[0x01, 0x02, 0x79];
+        let offset = 2;
+        match Instr::decode(code, offset) {
+            Err(Error::UnknownOpcode { opcode, offset }) => {
+                assert_eq!(opcode, 0x79);
+                assert_eq!(offset, 2);
+            }
+            Err(err) => panic!("Unknown opcode returned wrong error: {err}"),
+            Ok((instr, _)) => panic!("Opcode 0x79 decoded to {instr}"),
+        }
+    }
 }
