@@ -1,53 +1,80 @@
-use crate::{errors::Error, ops::Op};
-use tracing::debug;
+use crate::bytecode::Op;
 
 #[derive(Debug, PartialEq)]
-pub enum Token {
+pub enum Token<'src> {
     Op(Op),
     Value(i64),
-    Label(String),
+    Label(&'src str),
+    Ident(&'src str),
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Span<'src> {
+    pub token: Token<'src>,
+    pub line: usize,
+}
+
+// Compile a source file. Tokenise, then emit
 
 // Tokenise the code. At the moment we don't allow more than
 // one token per line nor do we handle comments
 // There is only one type (i64) and a limited set of instructions.
-pub fn tokenise(code: &str) -> Result<Vec<Token>, Error> {
-    let mut tokens = Vec::new();
+fn scanner(code: &str) -> Vec<Span<'_>> {
+    let mut spans = Vec::new();
     for (line_no, line) in code
         .lines()
         .map(str::trim)
         .filter(|l| !l.is_empty())
         .enumerate()
     {
-        for token in line.split_whitespace() {
-            match token {
+        for lexeme in line.split_whitespace() {
+            match lexeme {
                 "#" => break,
-                token if token.ends_with(':') => {
-                    let token = token.strip_suffix(':').expect(
-                        "Should be able to strip ':' after checking `token.ends_with(':')`",
-                    );
-                    debug!("Token: {token}");
-                    tokens.push(Token::Label(token.to_owned()));
-                }
-                "add" | "+" => tokens.push(Token::Op(Op::Add)),
-                "sub" | "-" => tokens.push(Token::Op(Op::Sub)),
-                "pop" => tokens.push(Token::Op(Op::Pop)),
-                "print" => tokens.push(Token::Op(Op::Print)),
-                "halt" => tokens.push(Token::Op(Op::Halt)),
+                lexeme if lexeme.ends_with(':') => spans.push(Span {
+                    token: Token::Label(lexeme),
+                    line: line_no,
+                }),
+                "add" | "+" => spans.push(Span {
+                    token: Token::Op(Op::Add),
+                    line: line_no,
+                }),
+                "sub" | "-" => spans.push(Span {
+                    token: Token::Op(Op::Sub),
+                    line: line_no,
+                }),
+                "pop" => spans.push(Span {
+                    token: Token::Op(Op::Pop),
+                    line: line_no,
+                }),
+                "print" => spans.push(Span {
+                    token: Token::Op(Op::Print),
+                    line: line_no,
+                }),
+                "jmp" => spans.push(Span {
+                    token: Token::Op(Op::Jmp),
+                    line: line_no,
+                }),
+                "halt" => spans.push(Span {
+                    token: Token::Op(Op::Halt),
+                    line: line_no,
+                }),
                 other => {
                     if let Ok(num) = &str::parse::<i64>(other) {
-                        tokens.push(Token::Value(*num));
+                        spans.push(Span {
+                            token: Token::Value(*num),
+                            line: line_no,
+                        });
                     } else {
-                        return Err(Error::Token {
-                            token: other.to_string(),
-                            line_number: line_no,
+                        spans.push(Span {
+                            token: Token::Ident(other),
+                            line: line_no,
                         });
                     }
                 }
             }
         }
     }
-    Ok(tokens)
+    spans
 }
 
 #[cfg(test)]
@@ -58,64 +85,168 @@ mod tests {
     fn tokenises_labels_values_and_ops_in_order() {
         let code = "start:\n1\n2\nadd\nprint\nhalt";
         let expected = vec![
-            Token::Label("start".to_string()),
-            Token::Value(1),
-            Token::Value(2),
-            Token::Op(Op::Add),
-            Token::Op(Op::Print),
-            Token::Op(Op::Halt),
+            Span {
+                token: Token::Label("start:"),
+                line: 0,
+            },
+            Span {
+                token: Token::Value(1),
+                line: 1,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Add),
+                line: 3,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 4,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 5,
+            },
         ];
-        assert_eq!(tokenise(code).unwrap(), expected);
+        assert_eq!(scanner(code), expected);
+    }
+
+    #[test]
+    fn tokenises_jmp_labels_correctly() {
+        let code = "start:\n1\n2\nadd\nprint\n1 2 jmp start halt";
+        let expected = vec![
+            Span {
+                token: Token::Label("start:"),
+                line: 0,
+            },
+            Span {
+                token: Token::Value(1),
+                line: 1,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Add),
+                line: 3,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 4,
+            },
+            Span {
+                token: Token::Value(1),
+                line: 5,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 5,
+            },
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 5,
+            },
+            Span {
+                token: Token::Ident("start"),
+                line: 5,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 5,
+            },
+        ];
+        assert_eq!(scanner(code), expected);
     }
 
     #[test]
     fn symbol_aliases_match_named_ops() {
-        assert_eq!(tokenise("+").unwrap(), tokenise("add").unwrap());
-        assert_eq!(tokenise("-").unwrap(), tokenise("sub").unwrap());
+        assert_eq!(scanner("+"), scanner("add"));
+        assert_eq!(scanner("-"), scanner("sub"));
     }
 
     #[test]
     fn negative_number_is_a_value_not_sub() {
-        assert_eq!(tokenise("-2").unwrap(), vec![Token::Value(-2)]);
+        assert_eq!(
+            scanner("-2"),
+            vec![Span {
+                token: Token::Value(-2),
+                line: 0
+            }]
+        );
     }
 
     #[test]
     fn blank_lines_and_surrounding_spaces_are_ignored() {
-        assert_eq!(tokenise("\n\n\n 1 ").unwrap(), vec![Token::Value(1)]);
+        assert_eq!(
+            scanner("\n\n\n 1 "),
+            vec![Span {
+                token: Token::Value(1),
+                line: 0
+            }]
+        );
     }
 
     #[test]
     fn empty_input_gives_no_tokens() {
-        assert_eq!(tokenise("").unwrap(), Vec::<Token>::new());
+        assert_eq!(scanner(""), Vec::<Span>::new());
     }
 
     #[test]
     fn comments_are_ignored() {
-        let expected = vec![Token::Value(-2), Token::Op(Op::Pop)];
+        let expected = vec![
+            Span {
+                token: Token::Value(-2),
+                line: 0,
+            },
+            Span {
+                token: Token::Op(Op::Pop),
+                line: 0,
+            },
+        ];
         assert_eq!(
-            tokenise("-2 pop # everything here is an ignored comment").unwrap(),
+            scanner("-2 pop # everything here is an ignored comment"),
             expected
         );
     }
 
     #[test]
-    fn unknown_token_reports_token_and_line() {
-        let result = tokenise("1\n2\nunknown_token\nhalt");
-        match result {
-            Err(Error::Token { token, line_number }) => {
-                assert_eq!(token, "unknown_token");
-                assert_eq!(line_number, 2);
-            }
-            other => panic!("expected Error::Token, got {other:?}"),
-        }
-    }
-
-    #[test]
     fn example_programs() {
-        assert!(tokenise(include_str!("../tests/test_no_errors.ccl")).is_ok());
-        assert!(matches!(
-            tokenise(include_str!("../tests/test_unknown_token.ccl")),
-            Err(Error::Token { line_number: 7, .. })
-        ));
+        let expected = vec![
+            Span {
+                token: Token::Value(1),
+                line: 0,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 1,
+            },
+            Span {
+                token: Token::Value(3),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 3,
+            },
+            Span {
+                token: Token::Op(Op::Pop),
+                line: 4,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 5,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 6,
+            },
+        ];
+        assert_eq!(
+            scanner(include_str!("../tests/test_no_errors.ccl")),
+            expected
+        );
     }
 }

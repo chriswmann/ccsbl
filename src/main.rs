@@ -6,14 +6,15 @@ use tracing_subscriber::EnvFilter;
 
 use crate::errors::Error;
 
+mod bytecode;
 mod cli;
 mod compiler;
 mod errors;
 mod file;
-mod ops;
 
 fn main() {
     tracing_subscriber::fmt()
+        .pretty()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
         )
@@ -32,9 +33,7 @@ fn run() -> Result<(), Error> {
     debug!("Args: {:#?}", &args);
 
     let code = file::load_file(&args.file)?;
-    debug!("{}", &code);
+    debug!("source code:\n{}", &code);
 
-    let tokens = compiler::tokenise(&code)?;
-    debug!("{:?}", &tokens);
     Ok(())
 }
