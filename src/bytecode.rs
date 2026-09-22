@@ -1,11 +1,14 @@
 use strum::FromRepr;
 
-#[derive(Clone, Copy, Debug, FromRepr, PartialEq, PartialOrd)]
+use crate::errors::Error;
+
+#[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
 #[repr(u8)]
 pub enum Op {
-    Pop = 0x01, // (a -- )
-    Add = 0x02, // (a b -- a+b)
-    Sub = 0x03, // (a b -- a-b)
+    Push = 0x00, // ( -- a)
+    Pop = 0x01,  // (a -- )
+    Add = 0x02,  // (a b -- a+b)
+    Sub = 0x03,  // (a b -- a-b)
     // Mul = 0x05,    // (a b -- a·b)
     // Div = 0x05,    // (a b -- a÷b)
     // Neg = 0x06,    // (a -- -a)
@@ -21,9 +24,47 @@ pub enum Op {
     // LShift = 0x10, // ( a n -- a << n )	Shift a left by n bits
     // RShift = 0x11, // ( a n -- a >> n )	Shift a right by n bits
     Jmp = 0x12,   // (  -- )
-    Print = 0x13, // (a b -- a) with b printed to stdout
+    Print = 0x14, // (a b -- a) with b printed to stdout
     Halt = 0xFF,  // end program
 }
 
 #[derive(Clone, Debug)]
-pub enum Instr {}
+pub enum Instr {
+    Push(i64),
+    Pop,
+    Add,
+    Sub,
+    // Jump offset as u32 so serialisation is consistent across platforms
+    Jmp(u32),
+    Print,
+    Halt,
+}
+
+impl Instr {
+    // Append this instruction's bytes.
+    pub fn encode(&self, out: &mut Vec<u8>) {
+        out.push(self.op() as u8);
+        match self {
+            Self::Push(value) => out.extend_from_slice(&value.to_le_bytes()),
+            Self::Jmp(offset) => out.extend_from_slice(&offset.to_le_bytes()),
+            Self::Pop | Self::Add | Self::Sub | Self::Print | Self::Halt => {}
+        }
+    }
+
+    fn op(&self) -> Op {
+        match self {
+            Self::Push(_) => Op::Push,
+            Self::Pop => Op::Pop,
+            Self::Add => Op::Add,
+            Self::Sub => Op::Push,
+            Self::Jmp(_) => Op::Jmp,
+            Self::Print => Op::Print,
+            Self::Halt => Op::Halt,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Program {
+    code: Vec<u8>,
+}

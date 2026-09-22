@@ -1,4 +1,7 @@
-use crate::bytecode::Op;
+use crate::{
+    bytecode::{Op, Program},
+    errors::Error,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'src> {
@@ -13,8 +16,6 @@ pub struct Span<'src> {
     pub token: Token<'src>,
     pub line: usize,
 }
-
-// Compile a source file. Tokenise, then emit
 
 // Tokenise the code. At the moment we don't allow more than
 // one token per line nor do we handle comments
