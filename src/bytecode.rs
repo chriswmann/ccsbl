@@ -81,14 +81,14 @@ impl Instr {
                     .split_first_chunk::<8>()
                     .ok_or(Error::TruncatedByteCode { offset })?;
                 let value = i64::from_le_bytes(*operand);
-                (Self::Push(value), 9)
+                (Self::Push(value), 1 + size_of::<i64>())
             }
             Op::Jmp => {
                 let (operand, _) = rest
                     .split_first_chunk::<4>()
                     .ok_or(Error::TruncatedByteCode { offset })?;
                 let value = u32::from_le_bytes(*operand);
-                (Self::Jmp(value), 5)
+                (Self::Jmp(value), 1 + size_of::<u32>())
             }
             Op::Pop => (Self::Pop, 1),
             Op::Add => (Self::Add, 1),
