@@ -6,7 +6,10 @@ pub enum Error {
     SourceFileRead(#[from] std::io::Error),
 
     #[error("Unrecognised token: '{token}' on line {line_number}")]
-    Token { line_number: usize, token: String },
+    Token { token: String, line_number: usize },
+
+    #[error("Jump label found instead of instruction: '{label}' on line {line_number}")]
+    Encode { label: String, line_number: usize },
 
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },

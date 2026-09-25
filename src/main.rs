@@ -8,9 +8,10 @@ use crate::errors::Error;
 
 mod bytecode;
 mod cli;
-mod compiler;
 mod errors;
 mod file;
+mod scan;
+mod token;
 
 fn main() {
     tracing_subscriber::fmt()
