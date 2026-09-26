@@ -11,8 +11,8 @@ pub enum Op {
     Pop = 0x02,  // (a -- )
     Add = 0x03,  // (a b -- a+b)
     Sub = 0x04,  // (a b -- a-b)
-    // Mul = 0x07,    // (a b -- a·b)
-    // Div = 0x07,    // (a b -- a÷b)
+    Mul = 0x05,  // (a b -- a·b)
+    Div = 0x06,  // (a b -- a÷b)
     // Neg = 0x08,    // (a -- -a)
     // Mod = 0x09,    // (-a -- a)
     // Dup = 0x0a,    // (a -- a a)
@@ -37,6 +37,8 @@ pub enum Instr {
     Pop,
     Add,
     Sub,
+    Mul,
+    Div,
     // Jump offset as u32 so serialisation is consistent across platforms
     Jmp(InstructionIndex),
     Print,
@@ -53,6 +55,8 @@ impl fmt::Display for Instr {
             Self::Pop => write!(f, "Pop"),
             Self::Add => write!(f, "Add"),
             Self::Sub => write!(f, "Sub"),
+            Self::Mul => write!(f, "Mul"),
+            Self::Div => write!(f, "Div"),
             Self::Jmp(offset) => write!(f, "Jump to {offset}"),
             Self::Print => write!(f, "Print"),
             Self::Halt => write!(f, "Halt"),
@@ -89,6 +93,8 @@ impl Instr {
             Op::Pop => (Self::Pop, 1),
             Op::Add => (Self::Add, 1),
             Op::Sub => (Self::Sub, 1),
+            Op::Mul => (Self::Mul, 1),
+            Op::Div => (Self::Div, 1),
             Op::Print => (Self::Print, 1),
             Op::Halt => (Self::Halt, 1),
         };
@@ -101,6 +107,8 @@ impl Instr {
             Self::Pop => Op::Pop,
             Self::Add => Op::Add,
             Self::Sub => Op::Sub,
+            Self::Mul => Op::Mul,
+            Self::Div => Op::Div,
             Self::Jmp(_) => Op::Jmp,
             Self::Print => Op::Print,
             Self::Halt => Op::Halt,

@@ -38,6 +38,14 @@ fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
                 token: Token::Op(Op::Sub),
                 line,
             }),
+            "mul" | "*" => spans.push(Span {
+                token: Token::Op(Op::Mul),
+                line,
+            }),
+            "div" | "/" => spans.push(Span {
+                token: Token::Op(Op::Div),
+                line,
+            }),
             "pop" => spans.push(Span {
                 token: Token::Op(Op::Pop),
                 line,
@@ -168,6 +176,69 @@ mod tests {
     }
 
     #[test]
+    fn arithmetic_aliases_are_classified_correctly() {
+        let lexemes = vec![
+            Lexeme {
+                text: "add",
+                line: 0,
+            },
+            Lexeme { text: "+", line: 0 },
+            Lexeme {
+                text: "sub",
+                line: 0,
+            },
+            Lexeme { text: "-", line: 0 },
+            Lexeme {
+                text: "mul",
+                line: 0,
+            },
+            Lexeme { text: "*", line: 0 },
+            Lexeme {
+                text: "div",
+                line: 0,
+            },
+            Lexeme { text: "/", line: 0 },
+        ];
+        assert_eq!(
+            classify(&lexemes),
+            vec![
+                Span {
+                    token: Token::Op(Op::Add),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Add),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Sub),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Sub),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Mul),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Mul),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Div),
+                    line: 0
+                },
+                Span {
+                    token: Token::Op(Op::Div),
+                    line: 0
+                },
+            ]
+        );
+    }
+
+    #[test]
     fn example_programs() {
         let expected = vec![
             Span {
@@ -195,8 +266,24 @@ mod tests {
                 line: 5,
             },
             Span {
-                token: Token::Op(Op::Halt),
+                token: Token::Value(2),
                 line: 6,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 6,
+            },
+            Span {
+                token: Token::Op(Op::Mul),
+                line: 6,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 7,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 8,
             },
         ];
         assert_eq!(
