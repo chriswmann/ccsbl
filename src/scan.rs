@@ -9,9 +9,11 @@ struct Lexeme<'src> {
 // Split the code into Lexemes, keeping line number for improved compiler
 // errors. Empty lines are not filtered, so that the line number matches the
 // input file to make locating errors easier.
+// Split on '#' and keep just the first part of the line, to discard comments.
 fn scan(code: &str) -> Vec<Lexeme<'_>> {
     let mut lexemes = Vec::new();
     for (line_num, line) in code.lines().map(str::trim).enumerate() {
+        let line = line.split('#').next().unwrap();
         for text in line.split_whitespace() {
             lexemes.push(Lexeme {
                 text,
@@ -28,7 +30,6 @@ fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
     let mut spans = Vec::new();
     for &Lexeme { text, line } in lexemes {
         match text {
-            "#" => break,
             "add" | "+" => spans.push(Span {
                 token: Token::Op(Op::Add),
                 line,
@@ -102,16 +103,6 @@ mod tests {
         assert_eq!(scan(code), expected);
     }
 
-    // #[test]
-    // fn tokenises_jmp_labels_correctly() {
-    // }
-    //
-    // #[test]
-    // fn symbol_aliases_match_named_ops() {
-    //     assert_eq!(scanner("+"), scanner("add"));
-    //     assert_eq!(scanner("-"), scanner("sub"));
-    // }
-    //
     #[test]
     fn scanned_blank_lines_and_surrounding_spaces_are_ignored() {
         assert_eq!(scan("\n\n\n 1 "), vec![Lexeme { text: "1", line: 3 }]);
@@ -158,7 +149,7 @@ mod tests {
     #[test]
     fn comments_are_ignored() {
         assert_eq!(
-            classify(&scan("-2 pop # this comment should be ignored")),
+            classify(&scan("-2 pop # this comment should be ignored\n0")),
             vec![
                 Span {
                     token: Token::Value(-2),
@@ -168,45 +159,49 @@ mod tests {
                     token: Token::Op(Op::Pop),
                     line: 0
                 },
+                Span {
+                    token: Token::Value(0),
+                    line: 1,
+                }
             ]
         );
     }
 
-    // #[test]
-    // fn example_programs() {
-    //     let expected = vec![
-    //         Span {
-    //             token: Token::Value(1),
-    //             line: 0,
-    //         },
-    //         Span {
-    //             token: Token::Value(2),
-    //             line: 1,
-    //         },
-    //         Span {
-    //             token: Token::Value(3),
-    //             line: 2,
-    //         },
-    //         Span {
-    //             token: Token::Op(Op::Print),
-    //             line: 3,
-    //         },
-    //         Span {
-    //             token: Token::Op(Op::Pop),
-    //             line: 4,
-    //         },
-    //         Span {
-    //             token: Token::Op(Op::Print),
-    //             line: 5,
-    //         },
-    //         Span {
-    //             token: Token::Op(Op::Halt),
-    //             line: 6,
-    //         },
-    //     ];
-    //     assert_eq!(
-    //         scanner(include_str!("../tests/test_no_errors.ccl")),
-    //         expected
-    //     );
-    // }
+    #[test]
+    fn example_programs() {
+        let expected = vec![
+            Span {
+                token: Token::Value(1),
+                line: 0,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 1,
+            },
+            Span {
+                token: Token::Value(3),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 3,
+            },
+            Span {
+                token: Token::Op(Op::Pop),
+                line: 4,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 5,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 6,
+            },
+        ];
+        assert_eq!(
+            classify(&scan(include_str!("../tests/test_no_errors.ccl"))),
+            expected
+        );
+    }
 }
