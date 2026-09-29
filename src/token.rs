@@ -16,15 +16,16 @@ impl<'src> fmt::Display for Token<'src> {
         }
     }
 }
-#[derive(Debug, PartialEq)]
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Span<'src> {
     pub token: Token<'src>,
     pub line: usize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Op {
-    Push,  // ( -- a)
+    // Push,  // ( -- a)
     Pop,   // (a -- )
     Print, // (a -- )
     Add,   // (a b -- a+b)

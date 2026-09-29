@@ -1,15 +1,14 @@
-use crate::bytecode::Instr;
-
+use crate::token::Token;
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum Error<'src> {
     #[error("Could not read source file: {0}")]
     SourceFileRead(#[from] std::io::Error),
 
-    #[error("Unrecognised token: '{token}' on line {line_number}")]
-    Token { token: String, line_number: usize },
+    #[error("Unrecognised token: '{token}' on line {line}")]
+    Token { token: Token<'src>, line: usize },
 
-    #[error("Jump label found instead of instruction: '{label}' on line {line_number}")]
-    Encode { label: String, line_number: usize },
+    #[error("Assembler error: {msg} on line {line}")]
+    Assembler { msg: String, line: usize },
 
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },

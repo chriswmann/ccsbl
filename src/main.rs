@@ -6,6 +6,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::errors::Error;
 
+mod assembler;
 mod bytecode;
 mod cli;
 mod errors;
@@ -29,7 +30,7 @@ fn main() {
     }
 }
 
-fn run() -> Result<(), Error> {
+fn run<'src>() -> Result<(), Error<'src>> {
     let args = cli::Cli::parse();
     debug!("Args: {:#?}", &args);
 

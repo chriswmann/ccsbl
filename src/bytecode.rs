@@ -6,13 +6,14 @@ use crate::errors::Error;
 
 #[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
 #[repr(u8)]
-pub enum Op {
-    Push = 0x01, // ( -- a)
-    Pop = 0x02,  // (a -- )
-    Add = 0x03,  // (a b -- a+b)
-    Sub = 0x04,  // (a b -- a-b)
-    Mul = 0x05,  // (a b -- a·b)
-    Div = 0x06,  // (a b -- a÷b)
+pub enum BytecodeOp {
+    Push = 0x01,
+    Pop = 0x02,   // (a -- )
+    Print = 0x03, // (a b -- a) with b printed to stdout
+    Add = 0x04,   // (a b -- a+b)
+    Sub = 0x05,   // (a b -- a-b)
+    Mul = 0x06,   // (a b -- a·b)
+    Div = 0x07,   // (a b -- a÷b)
     // Neg = 0x08,    // (a -- -a)
     // Mod = 0x09,    // (-a -- a)
     // Dup = 0x0a,    // (a -- a a)
@@ -27,8 +28,21 @@ pub enum Op {
     // RShift = 0x13, // ( a n -- a >> n )	Shift a right by n bits
     Jmp = 0x14, // (  -- )
     // Jt = 0x15  // ( -- )
-    Print = 0x19, // (a b -- a) with b printed to stdout
-    Halt = 0xFF,  // end program
+    Halt = 0xFF, // end program
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum AsmInstr<'src> {
+    Push { value: i64, line: usize },
+    Pop { line: usize },
+    Add { line: usize },
+    Sub { line: usize },
+    Mul { line: usize },
+    Div { line: usize },
+    // Jump with label
+    Jmp { label: &'src str, line: usize },
+    Print { line: usize },
+    Halt { line: usize },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,41 +92,47 @@ impl Instr {
         let (&opcode, rest) = bytes
             .split_first()
             .ok_or(Error::TruncatedByteCode { offset })?;
-        let op = Op::from_repr(opcode).ok_or(Error::UnknownOpcode { opcode, offset })?;
+        let op = BytecodeOp::from_repr(opcode).ok_or(Error::UnknownOpcode { opcode, offset })?;
         let (instr, consumed) = match op {
-            Op::Push => {
+            BytecodeOp::Push => {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
                     .ok_or(Error::TruncatedByteCode { offset })?;
                 let value = i64::from_le_bytes(*operand);
                 (Self::Push(value), 1 + size_of::<i64>())
             }
-            Op::Jmp => {
+            BytecodeOp::Jmp => {
                 todo!("Do later after refactoring scan and assemble stages")
             }
-            Op::Pop => (Self::Pop, 1),
-            Op::Add => (Self::Add, 1),
-            Op::Sub => (Self::Sub, 1),
-            Op::Mul => (Self::Mul, 1),
-            Op::Div => (Self::Div, 1),
-            Op::Print => (Self::Print, 1),
-            Op::Halt => (Self::Halt, 1),
+            BytecodeOp::Pop => (Self::Pop, 1),
+            BytecodeOp::Add => (Self::Add, 1),
+            BytecodeOp::Sub => (Self::Sub, 1),
+            BytecodeOp::Mul => (Self::Mul, 1),
+            BytecodeOp::Div => (Self::Div, 1),
+            BytecodeOp::Print => (Self::Print, 1),
+            BytecodeOp::Halt => (Self::Halt, 1),
         };
         Ok((instr, consumed))
     }
 
-    fn op(&self) -> Op {
+    fn op(&self) -> BytecodeOp {
         match self {
-            Self::Push(_) => Op::Push,
-            Self::Pop => Op::Pop,
-            Self::Add => Op::Add,
-            Self::Sub => Op::Sub,
-            Self::Mul => Op::Mul,
-            Self::Div => Op::Div,
-            Self::Jmp(_) => Op::Jmp,
-            Self::Print => Op::Print,
-            Self::Halt => Op::Halt,
+            Self::Push(_) => BytecodeOp::Push,
+            Self::Pop => BytecodeOp::Pop,
+            Self::Add => BytecodeOp::Add,
+            Self::Sub => BytecodeOp::Sub,
+            Self::Mul => BytecodeOp::Mul,
+            Self::Div => BytecodeOp::Div,
+            Self::Jmp(_) => BytecodeOp::Jmp,
+            Self::Print => BytecodeOp::Print,
+            Self::Halt => BytecodeOp::Halt,
         }
+    }
+}
+
+impl fmt::Display for InstructionIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -139,10 +159,10 @@ mod tests {
     )]
     fn encode_uses_little_endian_for_pushed_value_and_jmp_offset() {
         // Arrange expected
-        let mut expected = vec![Op::Push as u8];
+        let mut expected = vec![BytecodeOp::Push as u8];
         let value = 42_i64.to_le_bytes();
         expected.extend_from_slice(&value);
-        expected.push(Op::Jmp as u8);
+        expected.push(BytecodeOp::Jmp as u8);
         let label = 100_u32.to_le_bytes();
         expected.extend_from_slice(&label);
         // Arrange SUT
