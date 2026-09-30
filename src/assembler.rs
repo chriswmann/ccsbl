@@ -48,7 +48,6 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Vec<AsmInstr<'src>>, Error
                 }
                 Op::Halt => {
                     instrs.push(AsmInstr::Halt { line });
-                    return Ok(instrs);
                 }
             },
             Token::Value(value) => instrs.push(AsmInstr::Push { value, line }),
@@ -107,11 +106,9 @@ mod tests {
                 token: Token::Op(Op::Halt),
                 line: 4,
             },
-            // Expected to be missing from the output since the previous
-            // token is Halt.
             Span {
                 token: Token::Value(0),
-                line: 2,
+                line: 5,
             },
         ];
 
@@ -129,6 +126,7 @@ mod tests {
             AsmInstr::Print { line: 3 },
             AsmInstr::Add { line: 4 },
             AsmInstr::Halt { line: 4 },
+            AsmInstr::Push { value: 0, line: 5 },
         ];
         assert_eq!(assemble(&spans).unwrap(), expected);
     }
