@@ -10,11 +10,14 @@ pub enum Error<'src> {
         source: std::io::Error,
     },
 
-    #[error("Unrecognised token: '{token}' on line {line}")]
+    #[error("Unrecognised token: '{token}' on line {}", line + 1)]
     Token { token: Token<'src>, line: usize },
 
-    #[error("Assembler error: {msg} on line {line}")]
-    Assembler { msg: String, line: usize },
+    #[error("Expected jump label on line {}, found {token} instead", line + 1)]
+    NotAJumpLabel { token: Token<'src>, line: usize },
+
+    #[error("Expected jump label on line {}", line + 1)]
+    MissingJumpLabel { line: usize },
 
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },

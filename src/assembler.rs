@@ -36,17 +36,14 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Vec<AsmInstr<'src>>, Error
                                 idx += 1;
                             }
                             Token::Op(_) | Token::Value(_) => {
-                                return Err(Error::Token {
+                                return Err(Error::NotAJumpLabel {
                                     token: next_token,
                                     line: next_line,
                                 });
                             }
                         }
                     } else {
-                        return Err(Error::Assembler {
-                            msg: "Missing jump label".into(),
-                            line,
-                        });
+                        return Err(Error::MissingJumpLabel { line });
                     }
                 }
                 Op::Halt => {
@@ -151,7 +148,7 @@ mod tests {
         let result = assemble(&spans);
         assert!(matches!(
             &result,
-            Err(Error::Token { token, line }) if token == &Token::Op(Op::Pop) && *line == 1,
+            Err(Error::NotAJumpLabel { token, line }) if token == &Token::Op(Op::Pop) && *line == 1,
         ));
     }
 
@@ -171,7 +168,7 @@ mod tests {
         assert!(
             matches!(
             &result,
-                Err(Error::Token { token, line }) if *token == Token::Op(Op::Halt) && *line == 1
+                Err(Error::NotAJumpLabel { token, line }) if *token == Token::Op(Op::Halt) && *line == 1
             ),
             "Jmp then halt result was {result:?}"
         );
@@ -184,7 +181,7 @@ mod tests {
         assert!(
             matches!(
             &result,
-                Err(Error::Assembler { msg, line }) if *line == 100
+                Err(Error::MissingJumpLabel { line }) if *line == 100
             ),
             "Result was {result:?}"
         );
