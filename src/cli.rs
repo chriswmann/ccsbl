@@ -6,6 +6,10 @@ pub struct Cli {
     /// The file to compile or execute
     #[arg(short, long, value_parser = validate_extension)]
     pub file: path::PathBuf,
+
+    /// Print additional debuging information, such as longer slices of lexems and tokens
+    #[arg(short, long, default_value_t = false)]
+    pub verbose: bool,
 }
 
 fn validate_extension(path: &str) -> Result<path::PathBuf, String> {

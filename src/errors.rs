@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use crate::token::Token;
 #[derive(thiserror::Error, Debug)]
 pub enum Error<'src> {
@@ -19,4 +21,11 @@ pub enum Error<'src> {
 
     #[error("Unknown opcode 0x{opcode:02X} at offset {offset}")]
     UnknownOpcode { opcode: u8, offset: usize },
+}
+
+impl Error<'_> {
+    pub fn report<W: Write>(&self, w: &mut W) -> io::Result<()> {
+        writeln!(w, "{self}")?;
+        Ok(())
+    }
 }

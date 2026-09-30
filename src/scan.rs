@@ -1,7 +1,7 @@
 use crate::token::{Op, Span, Token};
 
 #[derive(Debug, PartialEq)]
-struct Lexeme<'src> {
+pub struct Lexeme<'src> {
     pub text: &'src str,
     pub line: usize,
 }
@@ -10,7 +10,7 @@ struct Lexeme<'src> {
 // errors. Empty lines are not filtered, so that the line number matches the
 // input file to make locating errors easier.
 // Split on '#' and keep just the first part of the line, to discard comments.
-fn scan(code: &str) -> Vec<Lexeme<'_>> {
+pub fn scan(code: &str) -> Vec<Lexeme<'_>> {
     let mut lexemes = Vec::new();
     for (line_num, line) in code.lines().map(str::trim).enumerate() {
         let line = line.split('#').next().unwrap();
@@ -26,7 +26,7 @@ fn scan(code: &str) -> Vec<Lexeme<'_>> {
 
 // Classify each Lexeme into a Token, keeping the line number for
 // error messages.
-fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
+pub fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
     let mut spans = Vec::new();
     for &Lexeme { text, line } in lexemes {
         match text {
