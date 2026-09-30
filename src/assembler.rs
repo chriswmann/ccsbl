@@ -25,7 +25,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Vec<AsmInstr<'src>>, Error
                 Op::Mul => instrs.push(AsmInstr::Mul { line }),
                 Op::Div => instrs.push(AsmInstr::Div { line }),
                 Op::Jmp => {
-                    if idx < spans.len() {
+                    if (idx + 1) < spans.len() {
                         let Span {
                             token: next_token,
                             line: next_line,
@@ -137,7 +137,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_expected_report_for_invalid_jump_operands() {
+    fn returns_expected_report_for_invalid_jump_operand() {
         let spans = vec![
             Span {
                 token: Token::Op(Op::Jmp),
@@ -150,8 +150,43 @@ mod tests {
         ];
         let result = assemble(&spans);
         assert!(matches!(
-            result,
-            Err(Error::Token { token, line }) if token == Token::Op(Op::Pop) && line == 1,
+            &result,
+            Err(Error::Token { token, line }) if token == &Token::Op(Op::Pop) && *line == 1,
         ));
+    }
+
+    #[test]
+    fn returns_expected_report_for_missing_jump_operand() {
+        let spans = vec![
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 0,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 1,
+            },
+        ];
+        let result = assemble(&spans);
+        assert!(
+            matches!(
+            &result,
+                Err(Error::Token { token, line }) if *token == Token::Op(Op::Halt) && *line == 1
+            ),
+            "Jmp then halt result was {result:?}"
+        );
+
+        let spans = vec![Span {
+            token: Token::Op(Op::Jmp),
+            line: 100,
+        }];
+        let result = assemble(&spans);
+        assert!(
+            matches!(
+            &result,
+                Err(Error::Assembler { msg, line }) if *line == 100
+            ),
+            "Result was {result:?}"
+        );
     }
 }
