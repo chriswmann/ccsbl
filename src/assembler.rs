@@ -28,7 +28,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Vec<AsmInstr<'src>>, Error
                     if idx < spans.len() {
                         let Span {
                             token: next_token,
-                            line: _,
+                            line: next_line,
                         } = spans[idx + 1].clone();
                         match next_token {
                             Token::Ident(ident) => {
@@ -36,7 +36,10 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Vec<AsmInstr<'src>>, Error
                                 idx += 1;
                             }
                             Token::Op(_) | Token::Value(_) => {
-                                return Err(Error::Token { token, line })
+                                return Err(Error::Token {
+                                    token: next_token,
+                                    line: next_line,
+                                });
                             }
                         }
                     } else {
@@ -62,6 +65,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Vec<AsmInstr<'src>>, Error
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
@@ -130,5 +134,24 @@ mod tests {
             AsmInstr::Halt { line: 4 },
         ];
         assert_eq!(assemble(&spans).unwrap(), expected);
+    }
+
+    #[test]
+    fn returns_expected_report_for_invalid_jump_operands() {
+        let spans = vec![
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 0,
+            },
+            Span {
+                token: Token::Op(Op::Pop),
+                line: 1,
+            },
+        ];
+        let result = assemble(&spans);
+        assert!(matches!(
+            result,
+            Err(Error::Token { token, line }) if token == Token::Op(Op::Pop) && line == 1,
+        ));
     }
 }

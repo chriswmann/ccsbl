@@ -1,8 +1,12 @@
 use crate::token::Token;
 #[derive(thiserror::Error, Debug)]
 pub enum Error<'src> {
-    #[error("Could not read source file: {0}")]
-    SourceFileRead(#[from] std::io::Error),
+    #[error("Could not read source file {}: {source}", path.display())]
+    SourceFile {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 
     #[error("Unrecognised token: '{token}' on line {line}")]
     Token { token: Token<'src>, line: usize },

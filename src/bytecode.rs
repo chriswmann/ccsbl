@@ -80,12 +80,12 @@ impl fmt::Display for Instr {
 
 impl Instr {
     // Append this instruction's bytes.
-    pub fn encode(&self, out: &mut Vec<u8>) -> Result<(), Error> {
+    pub fn encode(&self, out: &mut Vec<u8>) -> Result<(), Error<'_>> {
         out.push(self.op() as u8);
         Ok(())
     }
 
-    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), Error> {
+    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), Error<'_>> {
         let bytes = code
             .get(offset..)
             .ok_or(Error::TruncatedByteCode { offset })?;
