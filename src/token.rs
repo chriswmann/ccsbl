@@ -7,10 +7,10 @@ pub enum Token<'src> {
     Ident(&'src str),
 }
 
-impl<'src> fmt::Display for Token<'src> {
+impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Op(_) => write!(f, "Token of type Op"),
+            Token::Op(op) => write!(f, "Token of type Op: {op:?}"),
             Token::Value(value) => write!(f, "Token of type Value with value {value}"),
             Token::Ident(s) => write!(f, "Token of type Ident with value {s}"),
         }
