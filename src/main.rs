@@ -16,6 +16,7 @@ mod errors;
 mod file;
 mod scan;
 mod token;
+mod vm;
 
 #[derive(Debug)]
 enum RunStatus {

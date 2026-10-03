@@ -49,7 +49,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
                         } = spans[idx + 1].clone();
                         match next_token {
                             Token::Ident(ident) => {
-                                if labels.insert(ident, idx.into()).is_some() {
+                                if labels.contains_key(ident) {
                                     errors.push(Error::NotUniqueJumpTarget {
                                         target: ident,
                                         line: next_line,
@@ -98,13 +98,13 @@ fn resolve<'src>(
     let mut errors = Vec::new();
     for instr in instrs {
         match instr {
-            Instr::Push { value, line: _ } => asm.push(AsmInstr::Push(value)),
-            Instr::Pop { line: _ } => asm.push(AsmInstr::Pop),
-            Instr::Add { line: _ } => asm.push(AsmInstr::Add),
-            Instr::Sub { line: _ } => asm.push(AsmInstr::Sub),
-            Instr::Mul { line: _ } => asm.push(AsmInstr::Mul),
-            Instr::Div { line: _ } => asm.push(AsmInstr::Div),
-            Instr::Print { line: _ } => asm.push(AsmInstr::Print),
+            Instr::Push { value, .. } => asm.push(AsmInstr::Push(value)),
+            Instr::Pop { .. } => asm.push(AsmInstr::Pop),
+            Instr::Add { .. } => asm.push(AsmInstr::Add),
+            Instr::Sub { .. } => asm.push(AsmInstr::Sub),
+            Instr::Mul { .. } => asm.push(AsmInstr::Mul),
+            Instr::Div { .. } => asm.push(AsmInstr::Div),
+            Instr::Print { .. } => asm.push(AsmInstr::Print),
             Instr::Jmp { target, line } => match labels.get(target) {
                 Some(i) => asm.push(Jmp(*i)),
                 None => errors.push(Error::ResolveJumpTarget { target, line }),
