@@ -49,18 +49,11 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
                         } = spans[idx + 1].clone();
                         match next_token {
                             Token::Ident(ident) => {
-                                if labels.contains_key(ident) {
-                                    errors.push(Error::NotUniqueJumpTarget {
-                                        target: ident,
-                                        line: next_line,
-                                    });
-                                } else {
-                                    instrs.push(Instr::Jmp {
-                                        target: ident,
-                                        line,
-                                    });
-                                    idx += 1;
-                                }
+                                instrs.push(Instr::Jmp {
+                                    target: ident,
+                                    line,
+                                });
+                                idx += 1;
                             }
                             Token::Op(_) | Token::Value(_) | Token::Label(_) => {
                                 errors.push(Error::NotAJumpLabel {
@@ -91,14 +84,14 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
 }
 
 fn resolve<'src>(
-    instrs: Vec<Instr<'src>>,
+    instrs: &[Instr<'src>],
     labels: &HashMap<&'src str, InstructionIndex>,
 ) -> Result<Vec<AsmInstr>, Vec<Error<'src>>> {
     let mut asm = Vec::new();
     let mut errors = Vec::new();
     for instr in instrs {
         match instr {
-            Instr::Push { value, .. } => asm.push(AsmInstr::Push(value)),
+            Instr::Push { value, .. } => asm.push(AsmInstr::Push(*value)),
             Instr::Pop { .. } => asm.push(AsmInstr::Pop),
             Instr::Add { .. } => asm.push(AsmInstr::Add),
             Instr::Sub { .. } => asm.push(AsmInstr::Sub),
@@ -107,7 +100,10 @@ fn resolve<'src>(
             Instr::Print { .. } => asm.push(AsmInstr::Print),
             Instr::Jmp { target, line } => match labels.get(target) {
                 Some(i) => asm.push(Jmp(*i)),
-                None => errors.push(Error::ResolveJumpTarget { target, line }),
+                None => errors.push(Error::ResolveJumpTarget {
+                    target,
+                    line: *line,
+                }),
             },
             Instr::Halt { line: _ } => asm.push(AsmInstr::Halt),
         }
@@ -261,5 +257,106 @@ mod tests {
             }
             Ok(_) => panic!("Expected missing jump label to return Error"),
         }
+    }
+
+    #[test]
+    fn jump_back_is_handled_correctly() {
+        let spans = vec![
+            Span {
+                token: Token::Label("jump_back"),
+                line: 0,
+            },
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 1,
+            },
+            Span {
+                token: Token::Ident("jump_back"),
+                line: 2,
+            },
+        ];
+        let expected_instrs = vec![Instr::Jmp {
+            target: "jump_back",
+            line: 1,
+        }];
+        let expected_labels = HashMap::from([("jump_back", 0.into())]);
+        let Assembled { instrs, labels } = assemble(&spans).unwrap();
+        assert_eq!(instrs, expected_instrs);
+        assert_eq!(labels, expected_labels);
+        let expected_asm = vec![AsmInstr::Jmp(0.into())];
+        let asm = resolve(&instrs, &labels).unwrap();
+        assert_eq!(asm, expected_asm);
+    }
+
+    #[test]
+    fn jump_forward_is_handled_correctly() {
+        let spans = vec![
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 1,
+            },
+            Span {
+                token: Token::Ident("jump_forward"),
+                line: 2,
+            },
+            Span {
+                token: Token::Label("jump_forward"),
+                line: 3,
+            },
+        ];
+        let expected_instrs = vec![Instr::Jmp {
+            target: "jump_forward",
+            line: 1,
+        }];
+        let expected_labels = HashMap::from([("jump_forward", 1.into())]);
+        let Assembled { instrs, labels } = assemble(&spans).unwrap();
+        assert_eq!(instrs, expected_instrs);
+        assert_eq!(labels, expected_labels);
+        let expected_asm = vec![AsmInstr::Jmp(1.into())];
+        let asm = resolve(&instrs, &labels).unwrap();
+        assert_eq!(asm, expected_asm);
+    }
+
+    #[test]
+    fn jump_twice_is_handled_correctly() {
+        let spans = vec![
+            Span {
+                token: Token::Label("jump_back"),
+                line: 0,
+            },
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 1,
+            },
+            Span {
+                token: Token::Ident("jump_back"),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 3,
+            },
+            Span {
+                token: Token::Ident("jump_back"),
+                line: 4,
+            },
+        ];
+        let expected_instrs = vec![
+            Instr::Jmp {
+                target: "jump_back",
+                line: 1,
+            },
+            Instr::Jmp {
+                target: "jump_back",
+                line: 3,
+            },
+        ];
+        let expected_labels = HashMap::from([("jump_back", 0.into())]);
+        let Assembled { instrs, labels } = assemble(&spans).unwrap();
+        assert_eq!(instrs, expected_instrs);
+        assert_eq!(labels, expected_labels);
+        let expected_asm = vec![AsmInstr::Jmp(0.into()), AsmInstr::Jmp(0.into())];
+        let asm = resolve(&instrs, &labels).unwrap();
+        assert_eq!(asm, expected_asm);
     }
 }
