@@ -4,6 +4,7 @@ use core::fmt;
 pub enum Token<'src> {
     Op(Op),
     Value(i64),
+    Label(&'src str),
     Ident(&'src str),
 }
 
@@ -12,6 +13,7 @@ impl fmt::Display for Token<'_> {
         match self {
             Token::Op(op) => write!(f, "Token of type Op: {op:?}"),
             Token::Value(value) => write!(f, "Token of type Value with value {value}"),
+            Token::Label(label) => write!(f, "Token of type Label with label {label}"),
             Token::Ident(s) => write!(f, "Token of type Ident with value {s}"),
         }
     }

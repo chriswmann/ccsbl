@@ -1,6 +1,7 @@
 use std::io::{self, Write};
 
-use crate::token::Token;
+use crate::{bytecode::AsmInstr, token::Token};
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error<'src> {
     #[error("Could not read source file {}: {source}", path.display())]
@@ -19,11 +20,29 @@ pub enum Error<'src> {
     #[error("Expected jump label on line {}", line + 1)]
     MissingJumpLabel { line: usize },
 
+    #[error("Could not resolve jump target {target} on line {}", line + 1)]
+    ResolveJumpTarget { target: &'src str, line: usize },
+
+    #[error("Label {label} on line {} is not unique", line + 1)]
+    NotUniqueLabel { label: &'src str, line: usize },
+
+    #[error("Jump target {target} on line {} is not unique", line + 1)]
+    NotUniqueJumpTarget { target: &'src str, line: usize },
+
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },
 
     #[error("Unknown opcode 0x{opcode:02X} at offset {offset}")]
     UnknownOpcode { opcode: u8, offset: usize },
+
+    #[error("Attempted to {instr} with empty stack")]
+    StackUnderFlow { instr: AsmInstr },
+
+    #[error("Overflow error")]
+    Overflow,
+
+    #[error("Divide by zero error")]
+    DivideByZero,
 }
 
 impl Error<'_> {

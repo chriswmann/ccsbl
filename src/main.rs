@@ -5,8 +5,7 @@ use std::process::exit;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
-use crate::assembler::assemble;
-use crate::bytecode::AsmInstr;
+use crate::assembler::{assemble, Assembled};
 use crate::errors::Error;
 use crate::scan::{classify, scan};
 
@@ -62,26 +61,33 @@ fn run() -> RunStatus {
         max_end = 12;
     }
 
-    let instr = compile(&code, max_end);
+    let result = compile(&code, max_end);
 
-    match instr {
-        Ok(instr) => {
-            // encode instructions here
-            let end = cmp::min(instr.len(), max_end);
-            debug!("instr:\n{:?}", &instr[..end]);
-            RunStatus::Success
+    match result {
+        Ok(Assembled { instrs, labels }) => {
+            let end = cmp::min(instrs.len(), max_end);
+            debug!("instr:\n{:?}", &instrs[..end]);
+            let keys = labels.keys().copied().collect::<Vec<&str>>();
+            let end = cmp::min(keys.len(), max_end);
+            debug!("labels:\n{:?}", &keys[..end]);
+            debug!("Executing");
+            // execute(instrs);
+            return RunStatus::Success;
         }
-        Err(err) => {
+        Err(errors) => {
             let mut lock = std::io::stderr().lock();
-            match err.report(&mut lock) {
-                Ok(()) => RunStatus::Failure(1),
-                Err(_) => RunStatus::Failure(2),
+            for error in errors {
+                match error.report(&mut lock) {
+                    Ok(()) => {}
+                    Err(_) => return RunStatus::Failure(2),
+                }
             }
         }
     }
+    RunStatus::Failure(1)
 }
 
-fn compile(code: &str, max_end: usize) -> Result<Vec<AsmInstr<'_>>, Error<'_>> {
+fn compile(code: &str, max_end: usize) -> Result<Assembled<'_>, Vec<Error<'_>>> {
     let lexemes = scan(code);
     let end = cmp::min(lexemes.len(), max_end);
     debug!("lexemes:\n{:?}", &lexemes[..end]);

@@ -63,7 +63,13 @@ pub fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
                 line,
             }),
             other => {
-                if let Ok(num) = &str::parse::<i64>(other) {
+                if other.ends_with(':') {
+                    let label = other.strip_suffix(':').expect("should be able to strip ':' suffix because we checked `other.ends_with(':')` above");
+                    spans.push(Span {
+                        token: Token::Label(label),
+                        line,
+                    });
+                } else if let Ok(num) = &str::parse::<i64>(other) {
                     spans.push(Span {
                         token: Token::Value(*num),
                         line,
@@ -239,6 +245,48 @@ mod tests {
     }
 
     #[test]
+    fn labels_and_idents_are_classified_correctly() {
+        let lexemes = vec![
+            Lexeme {
+                text: "an_ident",
+                line: 0,
+            },
+            Lexeme {
+                text: "a_label:",
+                line: 0,
+            },
+            Lexeme {
+                text: "another_label:",
+                line: 2,
+            },
+            Lexeme {
+                text: "another_ident",
+                line: 4,
+            },
+        ];
+        let expected = vec![
+            Span {
+                token: Token::Ident("an_ident"),
+                line: 0,
+            },
+            Span {
+                token: Token::Label("a_label"),
+                line: 0,
+            },
+            Span {
+                token: Token::Label("another_label"),
+                line: 2,
+            },
+            Span {
+                token: Token::Ident("another_ident"),
+                line: 4,
+            },
+        ];
+        let result = classify(&lexemes);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn example_programs() {
         let expected = vec![
             Span {
@@ -282,8 +330,36 @@ mod tests {
                 line: 7,
             },
             Span {
-                token: Token::Op(Op::Halt),
+                token: Token::Value(1),
                 line: 8,
+            },
+            Span {
+                token: Token::Value(2),
+                line: 8,
+            },
+            Span {
+                token: Token::Op(Op::Jmp),
+                line: 9,
+            },
+            Span {
+                token: Token::Ident("end"),
+                line: 9,
+            },
+            Span {
+                token: Token::Op(Op::Halt),
+                line: 10,
+            },
+            Span {
+                token: Token::Label("end"),
+                line: 11,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 12,
+            },
+            Span {
+                token: Token::Op(Op::Pop),
+                line: 13,
             },
         ];
         assert_eq!(

@@ -33,44 +33,42 @@ pub enum BytecodeOp {
 
 // Source code instructions
 #[derive(Clone, Debug, PartialEq)]
-pub enum AsmInstr<'src> {
+pub enum Instr<'src> {
     Push { value: i64, line: usize },
     Pop { line: usize },
     Add { line: usize },
     Sub { line: usize },
     Mul { line: usize },
     Div { line: usize },
-    // Jump with label
-    Jmp { label: &'src str, line: usize },
+    Jmp { target: &'src str, line: usize },
     Print { line: usize },
     Halt { line: usize },
 }
 
 // Bytecode instructions
 #[derive(Clone, Debug, PartialEq)]
-pub enum Instr {
+pub enum AsmInstr {
     Push(i64),
     Pop,
     Add,
     Sub,
     Mul,
     Div,
-    // Jump offset as u32 so serialisation is consistent across platforms
     Jmp(InstructionIndex),
     Print,
     Halt,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct InstructionIndex(u32);
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InstructionIndex(pub usize);
 
-impl From<u32> for InstructionIndex {
-    fn from(d: u32) -> Self {
+impl From<usize> for InstructionIndex {
+    fn from(d: usize) -> Self {
         Self(d)
     }
 }
 
-impl fmt::Display for Instr {
+impl fmt::Display for AsmInstr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Push(value) => write!(f, "Push({value})"),
@@ -86,22 +84,22 @@ impl fmt::Display for Instr {
     }
 }
 
-impl Instr {
+impl AsmInstr {
     // Append this instruction's bytes.
     pub fn encode(&self, out: &mut Vec<u8>) {
         out.push(self.op() as u8);
         match self {
-            Instr::Push(value) => {
+            AsmInstr::Push(value) => {
                 out.extend_from_slice(&value.to_le_bytes());
             }
-            Instr::Jmp(ind) => out.extend_from_slice(&ind.0.to_le_bytes()),
-            Instr::Pop
-            | Instr::Add
-            | Instr::Sub
-            | Instr::Mul
-            | Instr::Div
-            | Instr::Print
-            | Instr::Halt => {}
+            AsmInstr::Jmp(ind) => out.extend_from_slice(&ind.0.to_le_bytes()),
+            AsmInstr::Pop
+            | AsmInstr::Add
+            | AsmInstr::Sub
+            | AsmInstr::Mul
+            | AsmInstr::Div
+            | AsmInstr::Print
+            | AsmInstr::Halt => {}
         }
     }
 
@@ -121,22 +119,22 @@ impl Instr {
                     .split_first_chunk::<8>()
                     .ok_or(Error::TruncatedByteCode { offset })?;
                 let value = i64::from_le_bytes(*operand);
-                (Self::Push(value), 1 + size_of::<i64>())
+                (Self::Push(value), Self::Push(value).size())
             }
             BytecodeOp::Jmp => {
                 let (operand, _) = rest
-                    .split_first_chunk::<4>()
+                    .split_first_chunk::<8>()
                     .ok_or(Error::TruncatedByteCode { offset })?;
-                let idx = u32::from_le_bytes(*operand);
-                (Self::Jmp(idx.into()), 1 + size_of::<u32>())
+                let idx = usize::from_le_bytes(*operand);
+                (Self::Jmp(idx.into()), Self::Jmp(idx.into()).size())
             }
-            BytecodeOp::Pop => (Self::Pop, 1),
-            BytecodeOp::Add => (Self::Add, 1),
-            BytecodeOp::Sub => (Self::Sub, 1),
-            BytecodeOp::Mul => (Self::Mul, 1),
-            BytecodeOp::Div => (Self::Div, 1),
-            BytecodeOp::Print => (Self::Print, 1),
-            BytecodeOp::Halt => (Self::Halt, 1),
+            BytecodeOp::Pop => (Self::Pop, Self::Pop.size()),
+            BytecodeOp::Add => (Self::Add, Self::Add.size()),
+            BytecodeOp::Sub => (Self::Sub, Self::Sub.size()),
+            BytecodeOp::Mul => (Self::Mul, Self::Mul.size()),
+            BytecodeOp::Div => (Self::Div, Self::Div.size()),
+            BytecodeOp::Print => (Self::Print, Self::Print.size()),
+            BytecodeOp::Halt => (Self::Halt, Self::Halt.size()),
         };
         Ok((instr, consumed))
     }
@@ -154,6 +152,20 @@ impl Instr {
             Self::Halt => BytecodeOp::Halt,
         }
     }
+
+    fn size(&self) -> usize {
+        match self {
+            Self::Pop
+            | Self::Add
+            | Self::Sub
+            | Self::Mul
+            | Self::Div
+            | Self::Print
+            | Self::Halt => 1,
+            Self::Push(_) => 1 + size_of::<i64>(),
+            Self::Jmp(_) => 1 + size_of::<usize>(),
+        }
+    }
 }
 
 impl fmt::Display for InstructionIndex {
@@ -162,6 +174,8 @@ impl fmt::Display for InstructionIndex {
     }
 }
 
+// `Program` is the bytecode with a header
+// that defines the encoding version.
 #[derive(Debug)]
 pub struct Program {
     code: Vec<u8>,
@@ -182,13 +196,13 @@ mod tests {
     #[test]
     fn encode_operandless_instructions() {
         let instrs = vec![
-            Instr::Pop,
-            Instr::Print,
-            Instr::Add,
-            Instr::Sub,
-            Instr::Mul,
-            Instr::Div,
-            Instr::Halt,
+            AsmInstr::Pop,
+            AsmInstr::Print,
+            AsmInstr::Add,
+            AsmInstr::Sub,
+            AsmInstr::Mul,
+            AsmInstr::Div,
+            AsmInstr::Halt,
         ];
         let expected: Vec<u8> = vec![2, 3, 4, 5, 6, 7, 255];
         let mut result = Vec::new();
@@ -200,7 +214,7 @@ mod tests {
 
     #[test]
     fn encode_push_little_endian() {
-        let push = Instr::Push(-1_155_356_143);
+        let push = AsmInstr::Push(-1_155_356_143);
         let expected = &[0x01, 0x11, 0xAA, 0x22, 0xBB, 0xFF, 0xFF, 0xFF, 0xFF];
         let mut result = Vec::new();
         push.encode(&mut result);
@@ -210,22 +224,22 @@ mod tests {
     #[test]
     fn encode_push_boundary_values() {
         let mut result = Vec::new();
-        let push = Instr::Push(0);
+        let push = AsmInstr::Push(0);
         push.encode(&mut result);
         assert_eq!(result, &[1, 0, 0, 0, 0, 0, 0, 0, 0]);
 
         result.clear();
-        let push = Instr::Push(-1);
+        let push = AsmInstr::Push(-1);
         push.encode(&mut result);
         assert_eq!(result, &[1, 255, 255, 255, 255, 255, 255, 255, 255]);
 
         result.clear();
-        let push = Instr::Push(i64::MIN);
+        let push = AsmInstr::Push(i64::MIN);
         push.encode(&mut result);
         assert_eq!(result, &[1, 0, 0, 0, 0, 0, 0, 0, 128]);
 
         result.clear();
-        let push = Instr::Push(i64::MAX);
+        let push = AsmInstr::Push(i64::MAX);
         push.encode(&mut result);
         assert_eq!(result, &[1, 255, 255, 255, 255, 255, 255, 255, 127]);
     }
@@ -233,15 +247,15 @@ mod tests {
     #[test]
     fn encode_jump_little_endian() {
         let mut result = Vec::new();
-        let jump = Instr::Jmp(24.into());
+        let jump = AsmInstr::Jmp(24.into());
         jump.encode(&mut result);
-        assert_eq!(result, &[20, 24, 0, 0, 0]);
+        assert_eq!(result, &[20, 24, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     #[test]
     fn encode_preserves_existing_bytes() {
         let mut result = vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 20, 47, 0, 0, 0];
-        let print = Instr::Print;
+        let print = AsmInstr::Print;
         print.encode(&mut result);
         assert_eq!(result, &[1, 0, 0, 0, 0, 0, 0, 0, 0, 20, 47, 0, 0, 0, 3]);
     }
@@ -250,12 +264,12 @@ mod tests {
     fn encode_multiple_instructions_in_order() {
         let mut result = Vec::new();
         let instrs = vec![
-            Instr::Push(0),
-            Instr::Push(2),
-            Instr::Push(-100),
-            Instr::Print,
-            Instr::Jmp(InstructionIndex(80)),
-            Instr::Pop,
+            AsmInstr::Push(0),
+            AsmInstr::Push(2),
+            AsmInstr::Push(-100),
+            AsmInstr::Print,
+            AsmInstr::Jmp(InstructionIndex(80)),
+            AsmInstr::Pop,
         ];
         for instr in instrs {
             instr.encode(&mut result);
@@ -263,7 +277,7 @@ mod tests {
 
         let expected = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 156, 255, 255, 255, 255, 255,
-            255, 255, 3, 20, 80, 0, 0, 0, 2,
+            255, 255, 3, 20, 80, 0, 0, 0, 0, 0, 0, 0, 2,
         ];
         assert_eq!(result, expected);
     }
@@ -276,35 +290,35 @@ mod tests {
             2,   // Pop
             3,   // Print
             4,   // Add
-            20, 41, 0, 0, 0,   // Jmp(41)
+            20, 41, 0, 0, 0, 0, 0, 0, 0,   // Jmp(41)
             255, // Halt
         ];
-        match Instr::decode(&bytecode, 0) {
-            Ok(instr) => assert_eq!(instr, (Instr::Push(0), 9)),
+        match AsmInstr::decode(&bytecode, 0) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Push(0), 9)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
-        match Instr::decode(&bytecode, 9) {
-            Ok(instr) => assert_eq!(instr, (Instr::Push(-1), 9)),
+        match AsmInstr::decode(&bytecode, 9) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Push(-1), 9)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
-        match Instr::decode(&bytecode, 18) {
-            Ok(instr) => assert_eq!(instr, (Instr::Pop, 1)),
+        match AsmInstr::decode(&bytecode, 18) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Pop, 1)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
-        match Instr::decode(&bytecode, 19) {
-            Ok(instr) => assert_eq!(instr, (Instr::Print, 1)),
+        match AsmInstr::decode(&bytecode, 19) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Print, 1)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
-        match Instr::decode(&bytecode, 20) {
-            Ok(instr) => assert_eq!(instr, (Instr::Add, 1)),
+        match AsmInstr::decode(&bytecode, 20) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Add, 1)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
-        match Instr::decode(&bytecode, 21) {
-            Ok(instr) => assert_eq!(instr, (Instr::Jmp(41.into()), 5)),
+        match AsmInstr::decode(&bytecode, 21) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Jmp(41.into()), 9)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
-        match Instr::decode(&bytecode, 26) {
-            Ok(instr) => assert_eq!(instr, (Instr::Halt, 1)),
+        match AsmInstr::decode(&bytecode, 30) {
+            Ok(instr) => assert_eq!(instr, (AsmInstr::Halt, 1)),
             Err(err) => panic!("Instr::decode failed with error {err}"),
         }
     }
@@ -313,7 +327,7 @@ mod tests {
     fn decode_returns_truncated_byte_error_when_bytes_are_truncated() {
         let code = &[0x01, 1, 0];
         let offset = 0;
-        match Instr::decode(code, offset) {
+        match AsmInstr::decode(code, offset) {
             Err(Error::TruncatedByteCode {
                 offset: offset_result,
             }) => {
@@ -328,7 +342,7 @@ mod tests {
     fn decode_returns_unknown_opcode_when_opcode_bytes_not_recognised() {
         let code = &[0x01, 0x02, 0x79];
         let offset = 2;
-        match Instr::decode(code, offset) {
+        match AsmInstr::decode(code, offset) {
             Err(Error::UnknownOpcode { opcode, offset }) => {
                 assert_eq!(opcode, 0x79);
                 assert_eq!(offset, 2);
