@@ -83,7 +83,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
     }
 }
 
-fn resolve<'src>(
+pub fn resolve<'src>(
     instrs: &[Instr<'src>],
     labels: &HashMap<&'src str, InstructionIndex>,
 ) -> Result<Vec<AsmInstr>, Vec<Error<'src>>> {

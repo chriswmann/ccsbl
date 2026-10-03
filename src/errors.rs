@@ -26,9 +26,6 @@ pub enum Error<'src> {
     #[error("Label {label} on line {} is not unique", line + 1)]
     NotUniqueLabel { label: &'src str, line: usize },
 
-    #[error("Jump target {target} on line {} is not unique", line + 1)]
-    NotUniqueJumpTarget { target: &'src str, line: usize },
-
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },
 
@@ -43,11 +40,20 @@ pub enum Error<'src> {
 
     #[error("Divide by zero error")]
     DivideByZero,
+
+    #[error("Compiler error")]
+    Compiler,
 }
 
 impl Error<'_> {
     pub fn report<W: Write>(&self, w: &mut W) -> io::Result<()> {
         writeln!(w, "{self}")?;
         Ok(())
+    }
+
+    pub fn report_many<W: Write>(errors: &[Self], w: &mut W) {
+        for error in errors {
+            let _ = error.report(w);
+        }
     }
 }

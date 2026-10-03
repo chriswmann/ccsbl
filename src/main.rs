@@ -5,9 +5,10 @@ use std::process::exit;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
-use crate::assembler::{assemble, Assembled};
+use crate::assembler::{assemble, resolve, Assembled};
 use crate::errors::Error;
 use crate::scan::{classify, scan};
+use crate::vm::execute;
 
 mod assembler;
 mod bytecode;
@@ -65,30 +66,12 @@ fn run() -> RunStatus {
     let result = compile(&code, max_end);
 
     match result {
-        Ok(Assembled { instrs, labels }) => {
-            let end = cmp::min(instrs.len(), max_end);
-            debug!("instr:\n{:?}", &instrs[..end]);
-            let keys = labels.keys().copied().collect::<Vec<&str>>();
-            let end = cmp::min(keys.len(), max_end);
-            debug!("labels:\n{:?}", &keys[..end]);
-            debug!("Executing");
-            // execute(instrs);
-            return RunStatus::Success;
-        }
-        Err(errors) => {
-            let mut lock = std::io::stderr().lock();
-            for error in errors {
-                match error.report(&mut lock) {
-                    Ok(()) => {}
-                    Err(_) => return RunStatus::Failure(2),
-                }
-            }
-        }
+        Ok(()) => RunStatus::Success,
+        Err(_) => RunStatus::Failure(0),
     }
-    RunStatus::Failure(1)
 }
 
-fn compile(code: &str, max_end: usize) -> Result<Assembled<'_>, Vec<Error<'_>>> {
+fn compile(code: &str, max_end: usize) -> Result<(), Error<'_>> {
     let lexemes = scan(code);
     let end = cmp::min(lexemes.len(), max_end);
     debug!("lexemes:\n{:?}", &lexemes[..end]);
@@ -97,5 +80,19 @@ fn compile(code: &str, max_end: usize) -> Result<Assembled<'_>, Vec<Error<'_>>> 
     let end = cmp::min(tokens.len(), max_end);
     debug!("tokens:\n{:?}", &tokens[..end]);
 
-    assemble(&tokens)
+    match assemble(&tokens) {
+        Ok(Assembled { instrs, labels }) => match resolve(&instrs, &labels) {
+            Ok(asm) => execute(&asm),
+            Err(errors) => {
+                let mut lock = std::io::stderr().lock();
+                Error::report_many(&errors, &mut lock);
+                Err(Error::Compiler)
+            }
+        },
+        Err(errors) => {
+            let mut lock = std::io::stderr().lock();
+            Error::report_many(&errors, &mut lock);
+            Err(Error::Compiler)
+        }
+    }
 }
