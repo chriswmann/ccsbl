@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn empty_input_gives_no_tokens() {
         let lexemes = scan("");
-        assert_eq!(classify(&lexemes), Vec::<Span>::new());
+        assert_eq!(classify(&lexemes), Vec::<Span<'_>>::new());
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::{bytecode::AsmInstr, token::Token};
+use crate::token::Token;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error<'src> {
@@ -32,8 +32,8 @@ pub enum Error<'src> {
     #[error("Unknown opcode 0x{opcode:02X} at offset {offset}")]
     UnknownOpcode { opcode: u8, offset: usize },
 
-    #[error("Attempted to {instr} with empty stack")]
-    StackUnderFlow { instr: AsmInstr },
+    #[error("Stack underflow error")]
+    StackUnderFlow,
 
     #[error("Overflow error")]
     Overflow,

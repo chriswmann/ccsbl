@@ -124,7 +124,7 @@ mod tests {
         let spans = Vec::new();
         let Assembled { instrs, labels } = assemble(&spans).unwrap();
         assert_eq!(labels, HashMap::<&str, InstructionIndex>::new());
-        assert_eq!(instrs, Vec::<Instr>::new());
+        assert_eq!(instrs, Vec::<Instr<'_>>::new());
     }
 
     #[test]

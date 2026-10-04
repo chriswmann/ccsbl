@@ -69,7 +69,7 @@ impl From<usize> for InstructionIndex {
 }
 
 impl fmt::Display for AsmInstr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Push(value) => write!(f, "Push({value})"),
             Self::Pop => write!(f, "Pop"),
