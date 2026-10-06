@@ -63,7 +63,10 @@ pub fn execute<'src>(asm: &[AsmInstr]) -> Result<(), Error<'src>> {
             AsmInstr::Div => {
                 let a = stack.pop()?;
                 let b = stack.pop()?;
-                let d = b.checked_div(a).ok_or(Error::DivideByZero)?;
+                if a == 0 {
+                    return Err(Error::DivideByZero);
+                }
+                let d = b.checked_div(a).ok_or(Error::Overflow)?;
                 stack.push(d);
             }
             AsmInstr::Print => {

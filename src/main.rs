@@ -22,6 +22,8 @@ mod vm;
 #[derive(Debug)]
 enum RunStatus {
     Success,
+    // 1: compilation or execution failure, reported
+    // 2: compilation or execution failure, failure while reporting
     Failure(i32),
 }
 
@@ -67,7 +69,16 @@ fn run() -> RunStatus {
 
     match result {
         Ok(()) => RunStatus::Success,
-        Err(_) => RunStatus::Failure(0),
+        // These diagnostics were already printed by `compile()`.
+        Err(Error::Compiler) => RunStatus::Failure(1),
+        Err(err) => {
+            let mut lock = std::io::stderr().lock();
+            match err.report(&mut lock) {
+                Ok(()) => RunStatus::Failure(1),
+                // Try to report errors again
+                Err(_) => RunStatus::Failure(2),
+            }
+        }
     }
 }
 
