@@ -32,6 +32,11 @@ pub enum Error<'src> {
     #[error("Unknown opcode 0x{opcode:02X} at offset {offset}")]
     UnknownOpcode { opcode: u8, offset: usize },
 
+    #[error(
+        "Jump target {target} at offset {offset} exceeds the platform's instruction index range"
+    )]
+    JumpTargetOutOfRange { target: u64, offset: usize },
+
     #[error("Stack underflow error")]
     StackUnderFlow,
 

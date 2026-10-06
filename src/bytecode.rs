@@ -92,7 +92,8 @@ impl AsmInstr {
             AsmInstr::Push(value) => {
                 out.extend_from_slice(&value.to_le_bytes());
             }
-            AsmInstr::Jmp(ind) => out.extend_from_slice(&ind.0.to_le_bytes()),
+            // Represent the instruction index as u64 for cross-platform compatibility
+            AsmInstr::Jmp(ind) => out.extend_from_slice(&(ind.0 as u64).to_le_bytes()),
             AsmInstr::Pop
             | AsmInstr::Add
             | AsmInstr::Sub
@@ -125,7 +126,9 @@ impl AsmInstr {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
                     .ok_or(Error::TruncatedByteCode { offset })?;
-                let idx = usize::from_le_bytes(*operand);
+                let target = u64::from_le_bytes(*operand);
+                let idx = usize::try_from(target)
+                    .map_err(|_| Error::JumpTargetOutOfRange { target, offset })?;
                 (Self::Jmp(idx.into()), Self::Jmp(idx.into()).size())
             }
             BytecodeOp::Pop => (Self::Pop, Self::Pop.size()),
@@ -163,7 +166,7 @@ impl AsmInstr {
             | Self::Print
             | Self::Halt => 1,
             Self::Push(_) => 1 + size_of::<i64>(),
-            Self::Jmp(_) => 1 + size_of::<usize>(),
+            Self::Jmp(_) => 1 + size_of::<u64>(),
         }
     }
 }
