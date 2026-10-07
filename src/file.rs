@@ -4,7 +4,7 @@ use std::path;
 use crate::errors::Error;
 
 pub fn load_source<'src>(file_path: impl AsRef<path::Path>) -> Result<String, Error<'src>> {
-    let contents = fs::read_to_string(file_path.as_ref()).map_err(|e| Error::SourceFile {
+    let contents = fs::read_to_string(file_path.as_ref()).map_err(|e| Error::File {
         path: file_path.as_ref().to_path_buf(),
         source: e,
     })?;
@@ -27,7 +27,7 @@ mod tests {
         assert!(matches!(
         result,
         Err(
-            Error::SourceFile {
+            Error::File {
                 path, source }
         ) if path == missing_path && source.kind() == io::ErrorKind::NotFound,
         ));
@@ -40,7 +40,7 @@ mod tests {
         assert!(matches!(
         result,
         Err(
-            Error::SourceFile { 
+            Error::File { 
                 path, source }
         ) if path == dir.path() && source.kind() == io::ErrorKind::IsADirectory));
     }

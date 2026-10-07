@@ -1,11 +1,14 @@
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    path::PathBuf,
+};
 
 use crate::token::Token;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error<'src> {
-    #[error("Could not read source file {}: {source}", path.display())]
-    SourceFile {
+    #[error("Could not access file {}: {source}", path.display())]
+    File {
         path: std::path::PathBuf,
         #[source]
         source: std::io::Error,
@@ -48,6 +51,18 @@ pub enum Error<'src> {
 
     #[error("Compiler error")]
     Compiler,
+
+    #[error("Unknown save location: {path}")]
+    UnknownSaveLocation { path: PathBuf },
+
+    #[error("Unknown file format: {path}")]
+    UnknownFileFormat { path: PathBuf },
+
+    #[error("IO error: {source}")]
+    Io {
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 impl Error<'_> {
