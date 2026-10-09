@@ -2,7 +2,7 @@ use std::fmt;
 
 use tracing::debug;
 
-use crate::{bytecode::AsmInstr, errors::Error};
+use crate::{bytecode::AsmInstr, error::RuntimeError};
 
 #[derive(Default)]
 struct Stack(Vec<i64>);
@@ -16,10 +16,10 @@ impl Stack {
         self.0.push(value);
     }
 
-    fn pop(&mut self) -> Result<i64, Error<'static>> {
+    fn pop(&mut self) -> Result<i64, RuntimeError> {
         match self.0.pop() {
             Some(value) => Ok(value),
-            None => Err(Error::StackUnderFlow),
+            None => Err(RuntimeError::StackUnderFlow),
         }
     }
 }
@@ -33,7 +33,7 @@ impl fmt::Display for Stack {
     }
 }
 
-pub fn execute<'src>(asm: &[AsmInstr]) -> Result<(), Error<'src>> {
+pub fn execute<'src>(asm: &[AsmInstr]) -> Result<(), RuntimeError> {
     let mut stack = Stack::new();
     let mut idx = 0;
     loop {
@@ -45,28 +45,28 @@ pub fn execute<'src>(asm: &[AsmInstr]) -> Result<(), Error<'src>> {
             AsmInstr::Add => {
                 let a = stack.pop()?;
                 let b = stack.pop()?;
-                let c = a.checked_add(b).ok_or(Error::Overflow)?;
+                let c = a.checked_add(b).ok_or(RuntimeError::Overflow)?;
                 stack.push(c);
             }
             AsmInstr::Sub => {
                 let a = stack.pop()?;
                 let b = stack.pop()?;
-                let c = b.checked_sub(a).ok_or(Error::Overflow)?;
+                let c = b.checked_sub(a).ok_or(RuntimeError::Overflow)?;
                 stack.push(c);
             }
             AsmInstr::Mul => {
                 let a = stack.pop()?;
                 let b = stack.pop()?;
-                let p = a.checked_mul(b).ok_or(Error::Overflow)?;
+                let p = a.checked_mul(b).ok_or(RuntimeError::Overflow)?;
                 stack.push(p);
             }
             AsmInstr::Div => {
                 let a = stack.pop()?;
                 let b = stack.pop()?;
                 if a == 0 {
-                    return Err(Error::DivideByZero);
+                    return Err(RuntimeError::DivideByZero);
                 }
-                let d = b.checked_div(a).ok_or(Error::Overflow)?;
+                let d = b.checked_div(a).ok_or(RuntimeError::Overflow)?;
                 stack.push(d);
             }
             AsmInstr::Print => {
@@ -100,13 +100,13 @@ mod tests {
         let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
         let result = execute(&asm);
         assert!(
-            matches!(&result, Err(Error::StackUnderFlow),),
+            matches!(&result, Err(RuntimeError::StackUnderFlow),),
             "expected StackUnderFlow but got {result:?}",
         );
         let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
         let result = execute(&asm);
         assert!(
-            matches!(&result, Err(Error::StackUnderFlow),),
+            matches!(&result, Err(RuntimeError::StackUnderFlow),),
             "expected StackUnderFlow but got {result:?}",
         );
     }

@@ -6,14 +6,7 @@ use std::{
 use crate::token::Token;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error<'src> {
-    #[error("Could not access file {}: {source}", path.display())]
-    File {
-        path: std::path::PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
+pub enum CompileError<'src> {
     #[error("Unrecognised token: '{token}' on line {}", line + 1)]
     Token { token: Token<'src>, line: usize },
 
@@ -29,6 +22,25 @@ pub enum Error<'src> {
     #[error("Label {label} on line {} is not unique", line + 1)]
     NotUniqueLabel { label: &'src str, line: usize },
 
+    #[error("Compiler error")]
+    Compiler,
+}
+
+impl CompileError<'_> {
+    pub fn report<W: Write>(&self, w: &mut W) -> io::Result<()> {
+        writeln!(w, "{self}")?;
+        Ok(())
+    }
+
+    pub fn report_many<W: Write>(errors: &[Self], w: &mut W) {
+        for error in errors {
+            let _ = error.report(w);
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum BytecodeError {
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },
 
@@ -39,7 +51,10 @@ pub enum Error<'src> {
         "Jump target {target} at offset {offset} exceeds the platform's instruction index range"
     )]
     JumpTargetOutOfRange { target: u64, offset: usize },
+}
 
+#[derive(thiserror::Error, Debug)]
+pub enum RuntimeError {
     #[error("Stack underflow error")]
     StackUnderFlow,
 
@@ -48,9 +63,16 @@ pub enum Error<'src> {
 
     #[error("Divide by zero error")]
     DivideByZero,
+}
 
-    #[error("Compiler error")]
-    Compiler,
+#[derive(thiserror::Error, Debug)]
+pub enum FileError {
+    #[error("Could not access file {}: {source}", path.display())]
+    File {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 
     #[error("Unknown save location: {path}")]
     UnknownSaveLocation { path: PathBuf },
@@ -63,17 +85,4 @@ pub enum Error<'src> {
         #[source]
         source: std::io::Error,
     },
-}
-
-impl Error<'_> {
-    pub fn report<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        writeln!(w, "{self}")?;
-        Ok(())
-    }
-
-    pub fn report_many<W: Write>(errors: &[Self], w: &mut W) {
-        for error in errors {
-            let _ = error.report(w);
-        }
-    }
 }

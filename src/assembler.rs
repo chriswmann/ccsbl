@@ -5,7 +5,7 @@ use crate::{
         AsmInstr::{self, Jmp},
         Instr, InstructionIndex,
     },
-    errors::Error,
+    error::CompileError,
     token::{Op, Span, Token},
 };
 
@@ -17,7 +17,7 @@ pub struct Assembled<'src> {
 
 // Not worrying about stack underflow or overflow yet
 // Jumps are resolved in `resolve` rather than backpatching.
-pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error<'src>>> {
+pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<CompileError<'src>>> {
     if spans.is_empty() {
         return Ok(Assembled::default());
     }
@@ -56,14 +56,14 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
                                 idx += 1;
                             }
                             Token::Op(_) | Token::Value(_) | Token::Label(_) => {
-                                errors.push(Error::NotAJumpLabel {
+                                errors.push(CompileError::NotAJumpLabel {
                                     token: next_token,
                                     line: next_line,
                                 });
                             }
                         }
                     } else {
-                        errors.push(Error::MissingJumpLabel { line });
+                        errors.push(CompileError::MissingJumpLabel { line });
                     }
                 }
                 Op::Halt => {
@@ -73,11 +73,11 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
             Token::Value(value) => instrs.push(Instr::Push { value, line }),
             Token::Label(label) => {
                 if labels.insert(label, instrs.len().into()).is_some() {
-                    errors.push(Error::NotUniqueLabel { label, line });
+                    errors.push(CompileError::NotUniqueLabel { label, line });
                 }
             }
             // Idents aren't implemented yet
-            token @ Token::Ident(_ident) => errors.push(Error::Token { token, line }),
+            token @ Token::Ident(_ident) => errors.push(CompileError::Token { token, line }),
         }
         idx += 1;
     }
@@ -86,7 +86,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Error
 pub fn resolve<'src>(
     instrs: &[Instr<'src>],
     labels: &HashMap<&'src str, InstructionIndex>,
-) -> Result<Vec<AsmInstr>, Vec<Error<'src>>> {
+) -> Result<Vec<AsmInstr>, Vec<CompileError<'src>>> {
     let mut asm = Vec::new();
     let mut errors = Vec::new();
     for instr in instrs {
@@ -100,7 +100,7 @@ pub fn resolve<'src>(
             Instr::Print { .. } => asm.push(AsmInstr::Print),
             Instr::Jmp { target, line } => match labels.get(target) {
                 Some(i) => asm.push(Jmp(*i)),
-                None => errors.push(Error::ResolveJumpTarget {
+                None => errors.push(CompileError::ResolveJumpTarget {
                     target,
                     line: *line,
                 }),
@@ -206,7 +206,7 @@ mod tests {
                 assert_eq!(errors.len(), 1);
                 assert!(matches!(
                         &errors[0],
-                        Error::NotAJumpLabel { token, line }
+                        CompileError::NotAJumpLabel { token, line }
                         if *token == Token::Op(Op::Pop) && *line == 1
                 ));
             }
@@ -232,7 +232,7 @@ mod tests {
                 assert!(
                     matches!(
                     &errors[0],
-                       Error::NotAJumpLabel { token, line } if *token == Token::Op(Op::Halt) && *line == 1
+                       CompileError::NotAJumpLabel { token, line } if *token == Token::Op(Op::Halt) && *line == 1
                     ),
                     "Jmp then halt result was {errors:?}",
                 );
@@ -250,7 +250,7 @@ mod tests {
                 assert!(
                     matches!(
                     &errors[0],
-                        Error::MissingJumpLabel { line } if *line == 100
+                        CompileError::MissingJumpLabel { line } if *line == 100
                     ),
                     "Result was {errors:?}",
                 );

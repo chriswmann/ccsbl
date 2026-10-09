@@ -1,13 +1,9 @@
-use std::{
-    fmt, fs,
-    io::Write,
-    path::{self, PathBuf},
-};
+use std::{fmt, fs, io::Write, path};
 
 use strum::FromRepr;
 use tempfile::NamedTempFile;
 
-use crate::errors::Error;
+use crate::error::{BytecodeError, FileError};
 
 const MAGIC_BYTES: &[u8] = b"CCSBL";
 const FILE_FORMAT_VERSION: u8 = 1;
@@ -114,29 +110,30 @@ impl AsmInstr {
 
     // Decode a bytecode instruction at the given offset, returning the `Instr`
     // and the number of bytes it consumed.
-    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), Error<'_>> {
+    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), BytecodeError> {
         let bytes = code
             .get(offset..)
-            .ok_or(Error::TruncatedByteCode { offset })?;
+            .ok_or(BytecodeError::TruncatedByteCode { offset })?;
         let (&opcode, rest) = bytes
             .split_first()
-            .ok_or(Error::TruncatedByteCode { offset })?;
-        let op = BytecodeOp::from_repr(opcode).ok_or(Error::UnknownOpcode { opcode, offset })?;
+            .ok_or(BytecodeError::TruncatedByteCode { offset })?;
+        let op =
+            BytecodeOp::from_repr(opcode).ok_or(BytecodeError::UnknownOpcode { opcode, offset })?;
         let (instr, consumed) = match op {
             BytecodeOp::Push => {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
-                    .ok_or(Error::TruncatedByteCode { offset })?;
+                    .ok_or(BytecodeError::TruncatedByteCode { offset })?;
                 let value = i64::from_le_bytes(*operand);
                 (Self::Push(value), Self::Push(value).size())
             }
             BytecodeOp::Jmp => {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
-                    .ok_or(Error::TruncatedByteCode { offset })?;
+                    .ok_or(BytecodeError::TruncatedByteCode { offset })?;
                 let target = u64::from_le_bytes(*operand);
                 let idx = usize::try_from(target)
-                    .map_err(|_| Error::JumpTargetOutOfRange { target, offset })?;
+                    .map_err(|_| BytecodeError::JumpTargetOutOfRange { target, offset })?;
                 (Self::Jmp(idx.into()), Self::Jmp(idx.into()).size())
             }
             BytecodeOp::Pop => (Self::Pop, Self::Pop.size()),
@@ -200,30 +197,31 @@ impl Program {
     }
 
     // Atomic save and sync the program to disk
-    pub fn save<'src>(&self, path: &path::Path) -> Result<(), Error<'src>> {
+    pub fn save<'src>(&self, path: &path::Path) -> Result<(), FileError> {
         let dir = path
             .parent()
             .filter(|&p| !p.as_os_str().is_empty())
             .unwrap_or_else(|| path::Path::new("."));
 
-        let mut temp = NamedTempFile::new_in(dir).map_err(|e| Error::Io { source: e })?;
+        let mut temp = NamedTempFile::new_in(dir).map_err(|e| FileError::Io { source: e })?;
 
         let data = self.format_file();
-        temp.write_all(&data).map_err(|e| Error::Io { source: e })?;
+        temp.write_all(&data)
+            .map_err(|e| FileError::Io { source: e })?;
 
         temp.as_file()
             .sync_all()
-            .map_err(|e| Error::Io { source: e })?;
+            .map_err(|e| FileError::Io { source: e })?;
 
-        let _file = temp.persist(path).map_err(|err| Error::File {
+        let _file = temp.persist(path).map_err(|err| FileError::File {
             path: path.to_path_buf(),
             source: err.error,
         })?;
 
         fs::File::open(dir)
-            .map_err(|err| Error::Io { source: err })?
+            .map_err(|err| FileError::Io { source: err })?
             .sync_all()
-            .map_err(|err| Error::Io { source: err })?;
+            .map_err(|err| FileError::Io { source: err })?;
         Ok(())
     }
 
@@ -235,35 +233,36 @@ impl Program {
         buf
     }
 
-    pub fn load<'src>(path: &path::Path) -> Result<Self, Error<'src>> {
-        let bytes = fs::read(path).map_err(|err| Error::Io { source: err })?;
+    pub fn load<'src>(path: &path::Path) -> Result<Self, FileError> {
+        let bytes = fs::read(path).map_err(|err| FileError::Io { source: err })?;
         let (magic_bytes, rest) =
             bytes
                 .split_at_checked(MAGIC_BYTES.len())
-                .ok_or(Error::UnknownFileFormat {
+                .ok_or(FileError::UnknownFileFormat {
                     path: path.to_path_buf(),
                 })?;
         if !matches!(magic_bytes, MAGIC_BYTES) {
-            return Err(Error::UnknownFileFormat {
+            return Err(FileError::UnknownFileFormat {
                 path: path.to_path_buf(),
             });
         }
         let (format_version, bytecode) =
-            rest.split_at_checked(1).ok_or(Error::UnknownFileFormat {
-                path: path.to_path_buf(),
-            })?;
-        let format_version = format_version.first().ok_or(Error::UnknownFileFormat {
+            rest.split_at_checked(1)
+                .ok_or(FileError::UnknownFileFormat {
+                    path: path.to_path_buf(),
+                })?;
+        let format_version = format_version.first().ok_or(FileError::UnknownFileFormat {
             path: path.to_path_buf(),
         })?;
         if *format_version != FILE_FORMAT_VERSION {
-            return Err(Error::UnknownFileFormat {
+            return Err(FileError::UnknownFileFormat {
                 path: path.to_path_buf(),
             });
         }
         Ok(Self::from_bytes(bytecode))
     }
 
-    pub fn decode<'src>(&'src self) -> Result<Vec<AsmInstr>, Error<'src>> {
+    pub fn decode<'src>(&'src self) -> Result<Vec<AsmInstr>, BytecodeError> {
         let mut offset = 0;
         let mut asm = Vec::new();
         loop {
@@ -419,7 +418,7 @@ mod tests {
         let code = &[0x01, 1, 0];
         let offset = 0;
         match AsmInstr::decode(code, offset) {
-            Err(Error::TruncatedByteCode {
+            Err(BytecodeError::TruncatedByteCode {
                 offset: offset_result,
             }) => {
                 assert_eq!(offset_result, offset);
@@ -434,7 +433,7 @@ mod tests {
         let code = &[0x01, 0x02, 0x79];
         let offset = 2;
         match AsmInstr::decode(code, offset) {
-            Err(Error::UnknownOpcode { opcode, offset }) => {
+            Err(BytecodeError::UnknownOpcode { opcode, offset }) => {
                 assert_eq!(opcode, 0x79);
                 assert_eq!(offset, 2);
             }
