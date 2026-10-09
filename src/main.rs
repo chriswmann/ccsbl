@@ -5,6 +5,7 @@ mod bytecode;
 mod cli;
 mod error;
 mod file;
+mod program;
 mod scan;
 mod token;
 mod vm;
