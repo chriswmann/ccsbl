@@ -1,24 +1,34 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
-    /// The file to compile or execute
-    #[arg(short, long, value_parser = validate_extension)]
-    pub file: path::PathBuf,
+    #[command(subcommand)]
+    pub command: Commands,
 
-    /// Print additional debuging information, such as longer slices of lexems and tokens
+    /// Print additional debuging information, such as longer slices of lexemes and tokens
     #[arg(short, long, default_value_t = false)]
     pub verbose: bool,
 }
 
-fn validate_extension(path: &str) -> Result<path::PathBuf, String> {
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    Load {
+        #[arg(value_parser = validate_file)]
+        file_path: path::PathBuf,
+    },
+}
+
+fn validate_file(path: &str) -> Result<path::PathBuf, String> {
     let path = path::PathBuf::from(path);
-    if path.extension().is_some_and(|ext| ext == "ccl") {
+    if path
+        .extension()
+        .is_some_and(|ext| ext == "ccl" || ext == "ccbc")
+    {
         Ok(path)
     } else {
         Err(format!(
-            "File must have a .ccl extension: {}",
+            "File must have a .ccl extension for source code or .ccbc for bytecocde: {}",
             path.display()
         ))
     }

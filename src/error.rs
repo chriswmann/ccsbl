@@ -26,19 +26,6 @@ pub enum CompileError<'src> {
     Compiler,
 }
 
-impl CompileError<'_> {
-    pub fn report<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        writeln!(w, "{self}")?;
-        Ok(())
-    }
-
-    pub fn report_many<W: Write>(errors: &[Self], w: &mut W) {
-        for error in errors {
-            let _ = error.report(w);
-        }
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum BytecodeError {
     #[error("Truncated byte code at offset {offset}")]
@@ -85,4 +72,24 @@ pub enum FileError {
         #[source]
         source: std::io::Error,
     },
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum AppError {
+    #[error("Execution failed")]
+    ExecutionFailure(i32),
+
+    #[error("Error reporting execution failure(s)")]
+    ExecutionAndReportingFailure(i32),
+}
+
+pub fn report<W: Write>(err: impl std::error::Error, w: &mut W) -> io::Result<()> {
+    writeln!(w, "{err}")?;
+    Ok(())
+}
+
+pub fn report_many<W: Write>(errors: &[impl std::error::Error], w: &mut W) {
+    for error in errors {
+        let _ = writeln!(w, "{error}");
+    }
 }

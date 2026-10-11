@@ -14,12 +14,17 @@ const FILE_FORMAT_VERSION: u8 = 1;
 // that defines the encoding version.
 #[derive(Debug)]
 pub struct Program {
+    header: Vec<u8>,
     code: Vec<u8>,
 }
 
 impl Program {
-    pub fn from_bytes(bytes: &[u8]) -> Self {
+    fn from_bytes(bytes: &[u8]) -> Self {
+        let mut header = Vec::new();
+        header.extend_from_slice(MAGIC_BYTES);
+        header.push(FILE_FORMAT_VERSION);
         Self {
+            header,
             code: bytes.to_vec(),
         }
     }
@@ -55,8 +60,7 @@ impl Program {
 
     fn format_file(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(&self.code.len() + 5 + 1);
-        buf.extend_from_slice(MAGIC_BYTES);
-        buf.extend_from_slice(&[FILE_FORMAT_VERSION]);
+        buf.extend_from_slice(&self.header);
         buf.extend_from_slice(&self.code);
         buf
     }
@@ -90,7 +94,15 @@ impl Program {
         Ok(Self::from_bytes(bytecode))
     }
 
-    pub fn decode<'src>(&'src self) -> Result<Vec<AsmInstr>, BytecodeError> {
+    fn encode(asm: &[AsmInstr]) -> Self {
+        let mut buf = Vec::with_capacity(asm.len() + 50);
+        for instr in asm {
+            instr.encode(&mut buf);
+        }
+        Self::from_bytes(&buf)
+    }
+
+    pub fn decode(&self) -> Result<Vec<AsmInstr>, BytecodeError> {
         let mut offset = 0;
         let mut asm = Vec::new();
         loop {

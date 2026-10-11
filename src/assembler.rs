@@ -6,6 +6,7 @@ use crate::{
         Instr, InstructionIndex,
     },
     error::CompileError,
+    scan,
     token::{Op, Span, Token},
 };
 
@@ -13,6 +14,14 @@ use crate::{
 pub struct Assembled<'src> {
     pub instrs: Vec<Instr<'src>>,
     pub labels: HashMap<&'src str, InstructionIndex>,
+}
+
+impl<'src> Assembled<'src> {
+    pub fn from_source(source: &'src str) -> Result<Self, Vec<CompileError<'src>>> {
+        let lexemes = scan::scan(source);
+        let spans = scan::classify(&lexemes);
+        assemble(&spans)
+    }
 }
 
 // Not worrying about stack underflow or overflow yet
@@ -83,15 +92,14 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
     }
 }
 
-pub fn resolve<'src>(
-    instrs: &[Instr<'src>],
-    labels: &HashMap<&'src str, InstructionIndex>,
-) -> Result<Vec<AsmInstr>, Vec<CompileError<'src>>> {
+pub fn resolve<'src>(assembled: Assembled<'src>) -> Result<Vec<AsmInstr>, Vec<CompileError<'src>>> {
     let mut asm = Vec::new();
     let mut errors = Vec::new();
+    let instrs = assembled.instrs;
+    let labels = assembled.labels;
     for instr in instrs {
         match instr {
-            Instr::Push { value, .. } => asm.push(AsmInstr::Push(*value)),
+            Instr::Push { value, .. } => asm.push(AsmInstr::Push(value)),
             Instr::Pop { .. } => asm.push(AsmInstr::Pop),
             Instr::Add { .. } => asm.push(AsmInstr::Add),
             Instr::Sub { .. } => asm.push(AsmInstr::Sub),
@@ -100,10 +108,7 @@ pub fn resolve<'src>(
             Instr::Print { .. } => asm.push(AsmInstr::Print),
             Instr::Jmp { target, line } => match labels.get(target) {
                 Some(i) => asm.push(Jmp(*i)),
-                None => errors.push(CompileError::ResolveJumpTarget {
-                    target,
-                    line: *line,
-                }),
+                None => errors.push(CompileError::ResolveJumpTarget { target, line }),
             },
             Instr::Halt { line: _ } => asm.push(AsmInstr::Halt),
         }
@@ -284,7 +289,7 @@ mod tests {
         assert_eq!(instrs, expected_instrs);
         assert_eq!(labels, expected_labels);
         let expected_asm = vec![AsmInstr::Jmp(0.into())];
-        let asm = resolve(&instrs, &labels).unwrap();
+        let asm = resolve(Assembled { instrs, labels }).unwrap();
         assert_eq!(asm, expected_asm);
     }
 
@@ -313,7 +318,7 @@ mod tests {
         assert_eq!(instrs, expected_instrs);
         assert_eq!(labels, expected_labels);
         let expected_asm = vec![AsmInstr::Jmp(1.into())];
-        let asm = resolve(&instrs, &labels).unwrap();
+        let asm = resolve(Assembled { instrs, labels }).unwrap();
         assert_eq!(asm, expected_asm);
     }
 
@@ -356,7 +361,7 @@ mod tests {
         assert_eq!(instrs, expected_instrs);
         assert_eq!(labels, expected_labels);
         let expected_asm = vec![AsmInstr::Jmp(0.into()), AsmInstr::Jmp(0.into())];
-        let asm = resolve(&instrs, &labels).unwrap();
+        let asm = resolve(Assembled { instrs, labels }).unwrap();
         assert_eq!(asm, expected_asm);
     }
 }
