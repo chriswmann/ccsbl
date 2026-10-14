@@ -47,6 +47,7 @@ fn main() {
         Err(err) => {
             let mut lock = std::io::stderr().lock();
             let _ = report(&err, &mut lock);
+            exit(1);
         }
     }
 }
