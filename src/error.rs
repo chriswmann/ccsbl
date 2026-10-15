@@ -1,9 +1,10 @@
+use core::fmt;
 use std::{
     io::{self, Write},
     path::PathBuf,
 };
 
-use crate::token::Token;
+use crate::{bytecode::InstructionIndex, token::Token};
 
 #[derive(thiserror::Error, Debug)]
 pub enum CompileError<'src> {
@@ -38,6 +39,62 @@ pub enum BytecodeError {
         "Jump target {target} at offset {offset} exceeds the platform's instruction index range"
     )]
     JumpTargetOutOfRange { target: u64, offset: usize },
+
+    #[error("One or more jump targets are for beyond the program length: {0}")]
+    JumpTargetOutOfProgram(BadJumpTargets),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BadJumpTargets {
+    targets: Vec<BadJumpTarget>,
+}
+
+impl BadJumpTargets {
+    pub fn new() -> Self {
+        Self {
+            targets: Vec::new(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.targets.is_empty()
+    }
+
+    pub fn push(&mut self, bad_target: BadJumpTarget) {
+        self.targets.push(bad_target);
+    }
+
+    #[cfg(test)]
+    pub fn targets(&self) -> Vec<BadJumpTarget> {
+        self.targets.to_vec()
+    }
+}
+
+impl fmt::Display for BadJumpTargets {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for target in &self.targets {
+            writeln!(f, "{target}")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct BadJumpTarget {
+    target: InstructionIndex,
+    idx: InstructionIndex,
+}
+
+impl BadJumpTarget {
+    pub fn from(target: InstructionIndex, idx: InstructionIndex) -> Self {
+        Self { target, idx }
+    }
+}
+
+impl fmt::Display for BadJumpTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Target: {:16} index: {:16}", self.target, self.idx)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -88,8 +145,9 @@ pub fn report<W: Write>(err: impl std::error::Error, w: &mut W) -> io::Result<()
     Ok(())
 }
 
-pub fn report_many<W: Write>(errors: &[impl std::error::Error], w: &mut W) {
+pub fn report_many<W: Write>(errors: &[impl std::error::Error], w: &mut W) -> io::Result<()> {
     for error in errors {
-        let _ = writeln!(w, "{error}");
+        writeln!(w, "{error}")?;
     }
+    Ok(())
 }

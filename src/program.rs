@@ -3,8 +3,12 @@ use std::{fs, io::Write, path};
 use tempfile::NamedTempFile;
 
 use crate::{
-    bytecode::AsmInstr,
-    error::{BytecodeError, FileError},
+    bytecode::{AsmInstr, InstructionIndex},
+    error::{
+        BadJumpTarget, BadJumpTargets,
+        BytecodeError::{self, JumpTargetOutOfProgram},
+        FileError,
+    },
 };
 
 const MAGIC_BYTES: &[u8] = b"CCSBL";
@@ -107,11 +111,26 @@ impl Program {
         let mut asm = Vec::new();
         loop {
             if offset >= self.code.len() {
-                return Ok(asm);
+                break;
             }
             let (instr, consumed) = AsmInstr::decode(&self.code, offset)?;
             asm.push(instr);
             offset += consumed;
+        }
+        let mut invalid_targets = BadJumpTargets::new();
+        for (idx, instr) in asm.iter().enumerate() {
+            if let AsmInstr::Jmp(target) = &instr {
+                if target.0 > asm.len() {
+                    let index = InstructionIndex::from(idx);
+                    let bad_target = BadJumpTarget::from(*target, index);
+                    invalid_targets.push(bad_target);
+                }
+            }
+        }
+        if invalid_targets.is_empty() {
+            Ok(asm)
+        } else {
+            Err(BytecodeError::JumpTargetOutOfProgram(invalid_targets))
         }
     }
 }
@@ -149,5 +168,21 @@ mod tests {
             .expect("should be able to write test code to temp file");
         let loaded = Program::load(file.path()).expect("should be able to load test program");
         assert_eq!(loaded.code, bytecode);
+    }
+
+    #[test]
+    fn decoding_a_program_with_a_jump_past_the_last_instruction_reports_correctly() {
+        let program = Program::from_bytes(&[20, 2, 0, 0, 0, 0, 0, 0, 0]);
+        let result = program.decode();
+        let mut expected = BadJumpTargets::new();
+        expected.push(BadJumpTarget::from(2.into(), 0.into()));
+        assert!(
+            matches!(
+                &result,
+                Err(BytecodeError::JumpTargetOutOfProgram(bad_jump_targets))
+                if *bad_jump_targets == expected
+            ),
+            "result was {result:?}",
+        );
     }
 }

@@ -5,10 +5,6 @@ use std::path;
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
-
-    /// Print additional debuging information, such as longer slices of lexemes and tokens
-    #[arg(short, long, default_value_t = false)]
-    pub verbose: bool,
 }
 
 #[derive(Subcommand, Debug)]

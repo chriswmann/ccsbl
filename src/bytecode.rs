@@ -2,7 +2,7 @@ use std::fmt;
 
 use strum::FromRepr;
 
-use crate::error::BytecodeError;
+use crate::error::{BadJumpTarget, BytecodeError};
 
 #[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
 #[repr(u8)]
@@ -65,6 +65,12 @@ pub struct InstructionIndex(pub usize);
 impl From<usize> for InstructionIndex {
     fn from(d: usize) -> Self {
         Self(d)
+    }
+}
+
+impl fmt::Display for InstructionIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -169,12 +175,6 @@ impl AsmInstr {
             Self::Push(_) => 1 + size_of::<i64>(),
             Self::Jmp(_) => 1 + size_of::<u64>(),
         }
-    }
-}
-
-impl fmt::Display for InstructionIndex {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
