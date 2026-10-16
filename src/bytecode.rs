@@ -14,7 +14,7 @@ pub enum BytecodeOp {
     Sub = 0x05,   // (a b -- a-b)
     Mul = 0x06,   // (a b -- a·b)
     Div = 0x07,   // (a b -- a÷b)
-    // Neg = 0x08,    // (a -- -a)
+    Neg = 0x08,   // (a -- -a)
     // Mod = 0x09,    // (-a -- a)
     // Dup = 0x0a,    // (a -- a a)
     // Over = 0x0b,   // (a b -- a b a)
@@ -40,6 +40,7 @@ pub enum Instr<'src> {
     Sub { line: usize },
     Mul { line: usize },
     Div { line: usize },
+    Neg { line: usize },
     Jmp { target: &'src str, line: usize },
     Print { line: usize },
     Halt { line: usize },
@@ -54,6 +55,7 @@ pub enum AsmInstr {
     Sub,
     Mul,
     Div,
+    Neg,
     Jmp(InstructionIndex),
     Print,
     Halt,
@@ -83,6 +85,7 @@ impl fmt::Display for AsmInstr {
             Self::Sub => write!(f, "Sub"),
             Self::Mul => write!(f, "Mul"),
             Self::Div => write!(f, "Div"),
+            Self::Neg => write!(f, "Neg"),
             Self::Jmp(offset) => write!(f, "Jump to {offset}"),
             Self::Print => write!(f, "Print"),
             Self::Halt => write!(f, "Halt"),
@@ -105,6 +108,7 @@ impl AsmInstr {
             | AsmInstr::Sub
             | AsmInstr::Mul
             | AsmInstr::Div
+            | AsmInstr::Neg
             | AsmInstr::Print
             | AsmInstr::Halt => {}
         }
@@ -143,6 +147,7 @@ impl AsmInstr {
             BytecodeOp::Sub => (Self::Sub, Self::Sub.size()),
             BytecodeOp::Mul => (Self::Mul, Self::Mul.size()),
             BytecodeOp::Div => (Self::Div, Self::Div.size()),
+            BytecodeOp::Neg => (Self::Neg, Self::Neg.size()),
             BytecodeOp::Print => (Self::Print, Self::Print.size()),
             BytecodeOp::Halt => (Self::Halt, Self::Halt.size()),
         };
@@ -157,6 +162,7 @@ impl AsmInstr {
             Self::Sub => BytecodeOp::Sub,
             Self::Mul => BytecodeOp::Mul,
             Self::Div => BytecodeOp::Div,
+            Self::Neg => BytecodeOp::Neg,
             Self::Jmp(_) => BytecodeOp::Jmp,
             Self::Print => BytecodeOp::Print,
             Self::Halt => BytecodeOp::Halt,
@@ -170,6 +176,7 @@ impl AsmInstr {
             | Self::Sub
             | Self::Mul
             | Self::Div
+            | Self::Neg
             | Self::Print
             | Self::Halt => 1,
             Self::Push(_) => 1 + size_of::<i64>(),
@@ -191,9 +198,10 @@ mod tests {
             AsmInstr::Sub,
             AsmInstr::Mul,
             AsmInstr::Div,
+            AsmInstr::Neg,
             AsmInstr::Halt,
         ];
-        let expected: Vec<u8> = vec![2, 3, 4, 5, 6, 7, 255];
+        let expected: Vec<u8> = vec![2, 3, 4, 5, 6, 7, 8, 255];
         let mut result = Vec::new();
         for instr in instrs {
             instr.encode(&mut result);
@@ -259,6 +267,8 @@ mod tests {
             AsmInstr::Print,
             AsmInstr::Jmp(InstructionIndex(80)),
             AsmInstr::Pop,
+            AsmInstr::Push(4),
+            AsmInstr::Neg,
         ];
         for instr in instrs {
             instr.encode(&mut result);
@@ -266,7 +276,7 @@ mod tests {
 
         let expected = vec![
             1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 156, 255, 255, 255, 255, 255,
-            255, 255, 3, 20, 80, 0, 0, 0, 0, 0, 0, 0, 2,
+            255, 255, 3, 20, 80, 0, 0, 0, 0, 0, 0, 0, 2, 1, 4, 0, 0, 0, 0, 0, 0, 0, 8,
         ];
         assert_eq!(result, expected);
     }

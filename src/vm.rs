@@ -71,6 +71,11 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let d = b.checked_div(a).ok_or(RuntimeError::Overflow)?;
                 stack.push(d);
             }
+            AsmInstr::Neg => {
+                let a = stack.pop()?;
+                let n = a.checked_neg().ok_or(RuntimeError::Overflow)?;
+                stack.push(n);
+            }
             AsmInstr::Print => {
                 let value = stack.pop()?;
                 print(value, w)?;
