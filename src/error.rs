@@ -1,4 +1,4 @@
-use core::fmt;
+use std::{error::Error, fmt};
 use std::{
     io::{self, Write},
     path::PathBuf,
@@ -107,6 +107,13 @@ pub enum RuntimeError {
 
     #[error("Divide by zero error")]
     DivideByZero,
+
+    #[error("Error printing {message} to console ({source})")]
+    Report {
+        message: String,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -136,7 +143,7 @@ pub enum AppError {
     #[error("Execution failed")]
     ExecutionFailure(i32),
 
-    #[error("Error reporting execution failure(s)")]
+    #[error("Execution failed and cannot report why")]
     ExecutionAndReportingFailure(i32),
 }
 

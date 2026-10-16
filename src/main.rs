@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path;
 use std::process::exit;
 
@@ -21,6 +22,7 @@ mod file;
 mod program;
 mod scan;
 mod token;
+mod ui;
 mod vm;
 
 fn main() {
@@ -42,13 +44,23 @@ fn main() {
             }
         },
     };
-    match execute(&asm) {
-        Ok(()) => (),
-        Err(err) => {
-            let mut lock = std::io::stderr().lock();
-            let _ = report(&err, &mut lock);
-            exit(1);
+    let mut stdout = std::io::stdout().lock();
+
+    let execution_result = execute(&asm, &mut stdout);
+    let flush_result = stdout.flush();
+    drop(stdout);
+
+    if execution_result.is_err() || flush_result.is_err() {
+        let mut stderr = std::io::stderr().lock();
+
+        if let Err(err) = execution_result {
+            let _ = report(err, &mut stderr);
         }
+
+        if let Err(err) = flush_result {
+            let _ = writeln!(stderr, "Failed to flush program output: {err}");
+        }
+        exit(1);
     }
 }
 

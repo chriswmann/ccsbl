@@ -1,7 +1,9 @@
 use std::fmt;
+use std::io::Write;
 
 use tracing::debug;
 
+use crate::ui::print;
 use crate::{bytecode::AsmInstr, error::RuntimeError};
 
 #[derive(Default)]
@@ -33,7 +35,7 @@ impl fmt::Display for Stack {
     }
 }
 
-pub fn execute<'src>(asm: &[AsmInstr]) -> Result<(), RuntimeError> {
+pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError> {
     let mut stack = Stack::new();
     let mut idx = 0;
     loop {
@@ -71,7 +73,7 @@ pub fn execute<'src>(asm: &[AsmInstr]) -> Result<(), RuntimeError> {
             }
             AsmInstr::Print => {
                 let value = stack.pop()?;
-                println!("{value}");
+                print(value, w)?;
             }
             AsmInstr::Pop => {
                 stack.pop()?;
@@ -98,16 +100,32 @@ mod tests {
     #[test]
     fn execute_reports_stack_underflow_when_stack_is_exhausted() {
         let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
-        let result = execute(&asm);
+        let result = execute(&asm, &mut Vec::new());
         assert!(
             matches!(&result, Err(RuntimeError::StackUnderFlow),),
             "expected StackUnderFlow but got {result:?}",
         );
         let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
-        let result = execute(&asm);
+        let result = execute(&asm, &mut Vec::new());
         assert!(
             matches!(&result, Err(RuntimeError::StackUnderFlow),),
             "expected StackUnderFlow but got {result:?}",
         );
+    }
+
+    #[test]
+    fn execute_prints_values_with_new_line() {
+        let asm = vec![
+            AsmInstr::Push(10),
+            AsmInstr::Push(20),
+            AsmInstr::Print,
+            AsmInstr::Print,
+            AsmInstr::Push(23),
+            AsmInstr::Print,
+        ];
+        let mut buf = Vec::new();
+        let expected = b"20\n10\n23\n";
+        execute(&asm, &mut buf).unwrap();
+        assert_eq!(buf, expected);
     }
 }
