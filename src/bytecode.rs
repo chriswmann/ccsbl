@@ -7,28 +7,29 @@ use crate::error::BytecodeError;
 #[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
 #[repr(u8)]
 pub enum BytecodeOp {
-    Push = 0x01,
-    Pop = 0x02,   // (a -- )
-    Print = 0x03, // (a b -- a) with b printed to stdout
+    // Stack effects show the top on the right; deeper values are unchanged.
+    Push = 0x01,  // ( -- a ) with a supplied as an immediate operand
+    Pop = 0x02,   // ( a -- )
+    Print = 0x03, // ( a -- ) with a printed to the output writer
     Add = 0x04,   // (a b -- a+b)
     Sub = 0x05,   // (a b -- a-b)
     Mul = 0x06,   // (a b -- a·b)
-    Div = 0x07,   // (a b -- a÷b)
+    Div = 0x07,   // (a b -- a/b) with the quotient truncated towards zero
     Neg = 0x08,   // (a -- -a)
-    Mod = 0x09,   // (a b -- a%b)
+    Mod = 0x09,   // (a b -- a%b) with a non-zero remainder having a's sign
     // Dup = 0x0a,    // (a -- a a)
     // Over = 0x0b,   // (a b -- a b a)
     // Swap = 0x0c,   // (a b -- b a)
     // Rot = 0x0d,    // (a b c -- b c a)
-    // And = 0x0e,    // ( a b -- a & b )	Bitwise AND
-    // Or = 0x0f,     // ( a b -- a | b )	Bitwise OR
-    // Xor = 0x10,    // ( a b -- a ^ b )	Bitwise exclusive OR
+    // And = 0x0e,    // ( a b -- a&b )	Bitwise AND
+    // Or = 0x0f,     // ( a b -- a|b )	Bitwise OR
+    // Xor = 0x10,    // ( a b -- a^b )	Bitwise exclusive OR
     // Not = 0x11,    // ( a -- ~a )	Bitwise complement
-    // LShift = 0x12, // ( a n -- a << n )	Shift a left by n bits
-    // RShift = 0x13, // ( a n -- a >> n )	Shift a right by n bits
-    Jmp = 0x14, // (  -- )
-    // Jt = 0x15  // ( -- )
-    Halt = 0xFF, // end program
+    // LShift = 0x12, // ( a n -- a<<n )	Shift a left by n bits
+    // RShift = 0x13, // ( a n -- a>>n )	Shift a right by n bits
+    Jmp = 0x14, // ( -- ) with the target supplied as an immediate operand
+    // Jt = 0x15  // Stack effect to be defined when implemented
+    Halt = 0xFF, // ( -- ) ends execution
 }
 
 // Source code instructions

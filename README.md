@@ -7,20 +7,21 @@ way. There's nothing special or clever about it, it's just a learning exercise.
 
 ## Example
 
-ccsbl doesn't support all of these operations yet but it will eventually.
+This example uses supported operations. Stack comments show the effect of each
+line, with the top of the stack on the right; deeper values are unchanged.
+Division truncates towards zero, and a non-zero remainder has the dividend's sign.
 
 ```ccl
 1 2 add       # ( -- 3 )
 print         # ( 3 -- )        displays 3
 10 4 sub      # ( -- 6 )
 pop           # ( 6 -- )        discards 6, nothing displayed
-1             # ( -- 1 )        initial counter
-start:
-dup add       # ( n -- 2n )     double the counter
-dup 9 gt      # ( n -- n bool ) test n > 9
-jt end
-jmp start
-end:
-print         # ( n -- )        displays the final value (16)
-halt
+
+# Verify a = (a / b) * b + (a % b), using a = -7 and b = 3
+-7 3 /        # ( -- -2 )       quotient truncated towards zero
+3 *           # ( -2 -- -6 )
+-7 3 %        # ( -- -1 )       leaves the earlier -6 underneath
++             # ( -6 -1 -- -7 )
+print         # ( -7 -- )       displays -7
+halt          # ( -- )          ends execution
 ```
