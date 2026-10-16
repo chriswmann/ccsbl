@@ -88,7 +88,13 @@ fn load(file_path: path::PathBuf) -> Result<Vec<AsmInstr>, AppError> {
                 Ok(asm) => Ok(asm),
                 Err(errs) => {
                     let mut lock = std::io::stderr().lock();
-                    report_many(&errs, &mut lock);
+                    let report_results = report_many(&errs, &mut lock);
+                    if let Err(errors) = report_results {
+                        let mut stderr = std::io::stderr().lock();
+                        for error in errors {
+                            let _ = writeln!(stderr, "Failed to report compilation error: {error}");
+                        }
+                    }
                     Err(AppError::ExecutionFailure(1))
                 }
             },

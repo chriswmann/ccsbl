@@ -152,9 +152,19 @@ pub fn report<W: Write>(err: impl std::error::Error, w: &mut W) -> io::Result<()
     Ok(())
 }
 
-pub fn report_many<W: Write>(errors: &[impl std::error::Error], w: &mut W) -> io::Result<()> {
+pub fn report_many<W: Write>(
+    errors: &[impl std::error::Error],
+    w: &mut W,
+) -> Result<(), Vec<io::Error>> {
+    let mut write_errors = Vec::new();
     for error in errors {
-        writeln!(w, "{error}")?;
+        if let Err(err) = writeln!(w, "{error}") {
+            write_errors.push(err);
+        }
     }
-    Ok(())
+    if write_errors.is_empty() {
+        Ok(())
+    } else {
+        Err(write_errors)
+    }
 }
