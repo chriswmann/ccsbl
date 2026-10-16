@@ -54,6 +54,10 @@ pub fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
                 token: Token::Op(Op::Mod),
                 line,
             }),
+            "dup" => spans.push(Span {
+                token: Token::Op(Op::Dup),
+                line,
+            }),
             "pop" => spans.push(Span {
                 token: Token::Op(Op::Pop),
                 line,
@@ -64,6 +68,10 @@ pub fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
             }),
             "jmp" => spans.push(Span {
                 token: Token::Op(Op::Jmp),
+                line,
+            }),
+            "jlt" => spans.push(Span {
+                token: Token::Op(Op::Jlt),
                 line,
             }),
             "halt" => spans.push(Span {
@@ -295,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn example_programs() {
+    fn example_program_test_no_errors() {
         let expected = vec![
             Span {
                 token: Token::Value(1),
@@ -392,6 +400,52 @@ mod tests {
         ];
         assert_eq!(
             classify(&scan(include_str!("../tests/test_no_errors.ccl"))),
+            expected
+        );
+    }
+
+    #[test]
+    fn example_program_test_conditional_loops() {
+        let expected = vec![
+            Span {
+                token: Token::Value(1),
+                line: 0,
+            },
+            Span {
+                token: Token::Label("start"),
+                line: 1,
+            },
+            Span {
+                token: Token::Value(1),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Add),
+                line: 2,
+            },
+            Span {
+                token: Token::Op(Op::Dup),
+                line: 3,
+            },
+            Span {
+                token: Token::Value(4),
+                line: 4,
+            },
+            Span {
+                token: Token::Op(Op::Jlt),
+                line: 5,
+            },
+            Span {
+                token: Token::Ident("start"),
+                line: 5,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 6,
+            },
+        ];
+        assert_eq!(
+            classify(&scan(include_str!("../tests/test_conditional_loops.ccl"))),
             expected
         );
     }

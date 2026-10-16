@@ -36,7 +36,7 @@ pub enum Op {
     Div,   // (a b -- a÷b)
     Neg,   // (a -- -a)
     Mod,   // (a b -- a%b)
-    // Dup,    // (a -- a a)
+    Dup,   // (a -- a a)
     // Ove,    // (a b -- a b a)
     // Swap,   // (a b -- b a)
     // Rot,    // (a b c -- b c a)
@@ -47,6 +47,7 @@ pub enum Op {
     // LShift, // ( a n -- a << n )	Shift a left by n bits
     // RShift, // ( a n -- a >> n )	Shift a right by n bits
     Jmp, // (  -- )
-    // Jt,     // (a b -- a) with b printed to stdout
+    Jlt, // (a b -- ) jump if a < b
+    // Jgt,     // (a b -- ) jump if a > b
     Halt, // end program
 }

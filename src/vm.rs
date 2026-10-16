@@ -85,6 +85,12 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let n = b.checked_rem(a).ok_or(RuntimeError::Overflow)?;
                 stack.push(n);
             }
+            AsmInstr::Dup => {
+                let a = stack.pop()?;
+                let b = a;
+                stack.push(a);
+                stack.push(b);
+            }
             AsmInstr::Print => {
                 let value = stack.pop()?;
                 print(value, w)?;
@@ -98,6 +104,14 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
             AsmInstr::Jmp(instr_index) => {
                 idx = instr_index.0;
                 continue;
+            }
+            AsmInstr::Jlt(instr_index) => {
+                let a = stack.pop()?;
+                let b = stack.pop()?;
+                if b < a {
+                    idx = instr_index.0;
+                    continue;
+                }
             }
             AsmInstr::Halt => {
                 return Ok(());

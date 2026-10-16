@@ -139,6 +139,8 @@ impl Program {
 mod tests {
     use tempfile::tempdir;
 
+    use crate::program;
+
     use super::*;
 
     #[test]

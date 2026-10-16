@@ -17,7 +17,7 @@ pub enum BytecodeOp {
     Div = 0x07,   // (a b -- a/b) with the quotient truncated towards zero
     Neg = 0x08,   // (a -- -a)
     Mod = 0x09,   // (a b -- a%b) with a non-zero remainder having a's sign
-    // Dup = 0x0a,    // (a -- a a)
+    Dup = 0x0a,   // (a -- a a)
     // Over = 0x0b,   // (a b -- a b a)
     // Swap = 0x0c,   // (a b -- b a)
     // Rot = 0x0d,    // (a b c -- b c a)
@@ -28,7 +28,8 @@ pub enum BytecodeOp {
     // LShift = 0x12, // ( a n -- a<<n )	Shift a left by n bits
     // RShift = 0x13, // ( a n -- a>>n )	Shift a right by n bits
     Jmp = 0x14, // ( -- ) with the target supplied as an immediate operand
-    // Jt = 0x15  // Stack effect to be defined when implemented
+    Jlt = 0x15, // (a b -- ) jump if a < b
+    // Jgt = 0x16  // Stack effect to be defined when implemented
     Halt = 0xFF, // ( -- ) ends execution
 }
 
@@ -43,7 +44,9 @@ pub enum Instr<'src> {
     Div { line: usize },
     Neg { line: usize },
     Mod { line: usize },
+    Dup { line: usize },
     Jmp { target: &'src str, line: usize },
+    Jlt { target: &'src str, line: usize },
     Print { line: usize },
     Halt { line: usize },
 }
@@ -59,7 +62,9 @@ pub enum AsmInstr {
     Div,
     Neg,
     Mod,
+    Dup,
     Jmp(InstructionIndex),
+    Jlt(InstructionIndex),
     Print,
     Halt,
 }
@@ -90,7 +95,9 @@ impl fmt::Display for AsmInstr {
             Self::Div => write!(f, "Div"),
             Self::Neg => write!(f, "Neg"),
             Self::Mod => write!(f, "Mod"),
+            Self::Dup => write!(f, "Dup"),
             Self::Jmp(offset) => write!(f, "Jump to {offset}"),
+            Self::Jlt(offset) => write!(f, "Jump to {offset} if less than"),
             Self::Print => write!(f, "Print"),
             Self::Halt => write!(f, "Halt"),
         }
@@ -106,7 +113,9 @@ impl AsmInstr {
                 out.extend_from_slice(&value.to_le_bytes());
             }
             // Represent the instruction index as u64 for cross-platform compatibility
-            AsmInstr::Jmp(ind) => out.extend_from_slice(&(ind.0 as u64).to_le_bytes()),
+            AsmInstr::Jmp(ind) | AsmInstr::Jlt(ind) => {
+                out.extend_from_slice(&(ind.0 as u64).to_le_bytes());
+            }
             AsmInstr::Pop
             | AsmInstr::Add
             | AsmInstr::Sub
@@ -114,6 +123,7 @@ impl AsmInstr {
             | AsmInstr::Div
             | AsmInstr::Neg
             | AsmInstr::Mod
+            | AsmInstr::Dup
             | AsmInstr::Print
             | AsmInstr::Halt => {}
         }
@@ -147,6 +157,15 @@ impl AsmInstr {
                     .map_err(|_| BytecodeError::JumpTargetOutOfRange { target, offset })?;
                 (Self::Jmp(idx.into()), Self::Jmp(idx.into()).size())
             }
+            BytecodeOp::Jlt => {
+                let (operand, _) = rest
+                    .split_first_chunk::<8>()
+                    .ok_or(BytecodeError::TruncatedByteCode { offset })?;
+                let target = u64::from_le_bytes(*operand);
+                let idx = usize::try_from(target)
+                    .map_err(|_| BytecodeError::JumpTargetOutOfRange { target, offset })?;
+                (Self::Jlt(idx.into()), Self::Jlt(idx.into()).size())
+            }
             BytecodeOp::Pop => (Self::Pop, Self::Pop.size()),
             BytecodeOp::Add => (Self::Add, Self::Add.size()),
             BytecodeOp::Sub => (Self::Sub, Self::Sub.size()),
@@ -154,6 +173,7 @@ impl AsmInstr {
             BytecodeOp::Div => (Self::Div, Self::Div.size()),
             BytecodeOp::Neg => (Self::Neg, Self::Neg.size()),
             BytecodeOp::Mod => (Self::Mod, Self::Mod.size()),
+            BytecodeOp::Dup => (Self::Dup, Self::Dup.size()),
             BytecodeOp::Print => (Self::Print, Self::Print.size()),
             BytecodeOp::Halt => (Self::Halt, Self::Halt.size()),
         };
@@ -170,7 +190,9 @@ impl AsmInstr {
             Self::Div => BytecodeOp::Div,
             Self::Neg => BytecodeOp::Neg,
             Self::Mod => BytecodeOp::Mod,
+            Self::Dup => BytecodeOp::Dup,
             Self::Jmp(_) => BytecodeOp::Jmp,
+            Self::Jlt(_) => BytecodeOp::Jlt,
             Self::Print => BytecodeOp::Print,
             Self::Halt => BytecodeOp::Halt,
         }
@@ -185,10 +207,11 @@ impl AsmInstr {
             | Self::Div
             | Self::Neg
             | Self::Mod
+            | Self::Dup
             | Self::Print
             | Self::Halt => 1,
             Self::Push(_) => 1 + size_of::<i64>(),
-            Self::Jmp(_) => 1 + size_of::<u64>(),
+            Self::Jmp(_) | Self::Jlt(_) => 1 + size_of::<u64>(),
         }
     }
 }

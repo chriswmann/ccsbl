@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    bytecode::{
-        AsmInstr::{self, Jmp},
-        Instr, InstructionIndex,
-    },
+    bytecode::{AsmInstr, Instr, InstructionIndex},
     error::CompileError,
     token::{Op, Span, Token},
 };
@@ -43,6 +40,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
                 Op::Div => instrs.push(Instr::Div { line }),
                 Op::Neg => instrs.push(Instr::Neg { line }),
                 Op::Mod => instrs.push(Instr::Mod { line }),
+                Op::Dup => instrs.push(Instr::Dup { line }),
                 Op::Jmp => {
                     if (idx + 1) < spans.len() {
                         let Span {
@@ -52,6 +50,31 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
                         match next_token {
                             Token::Ident(ident) => {
                                 instrs.push(Instr::Jmp {
+                                    target: ident,
+                                    line,
+                                });
+                                idx += 1;
+                            }
+                            Token::Op(_) | Token::Value(_) | Token::Label(_) => {
+                                errors.push(CompileError::NotAJumpLabel {
+                                    token: next_token,
+                                    line: next_line,
+                                });
+                            }
+                        }
+                    } else {
+                        errors.push(CompileError::MissingJumpLabel { line });
+                    }
+                }
+                Op::Jlt => {
+                    if (idx + 1) < spans.len() {
+                        let Span {
+                            token: next_token,
+                            line: next_line,
+                        } = spans[idx + 1].clone();
+                        match next_token {
+                            Token::Ident(ident) => {
+                                instrs.push(Instr::Jlt {
                                     target: ident,
                                     line,
                                 });
@@ -100,9 +123,14 @@ pub fn resolve<'src>(assembled: Assembled<'src>) -> Result<Vec<AsmInstr>, Vec<Co
             Instr::Div { .. } => asm.push(AsmInstr::Div),
             Instr::Neg { .. } => asm.push(AsmInstr::Neg),
             Instr::Mod { .. } => asm.push(AsmInstr::Mod),
+            Instr::Dup { .. } => asm.push(AsmInstr::Dup),
             Instr::Print { .. } => asm.push(AsmInstr::Print),
             Instr::Jmp { target, line } => match labels.get(target) {
-                Some(i) => asm.push(Jmp(*i)),
+                Some(i) => asm.push(AsmInstr::Jmp(*i)),
+                None => errors.push(CompileError::ResolveJumpTarget { target, line }),
+            },
+            Instr::Jlt { target, line } => match labels.get(target) {
+                Some(i) => asm.push(AsmInstr::Jlt(*i)),
                 None => errors.push(CompileError::ResolveJumpTarget { target, line }),
             },
             Instr::Halt { line: _ } => asm.push(AsmInstr::Halt),
