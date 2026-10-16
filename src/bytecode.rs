@@ -2,7 +2,7 @@ use std::fmt;
 
 use strum::FromRepr;
 
-use crate::error::{BadJumpTarget, BytecodeError};
+use crate::error::BytecodeError;
 
 #[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
 #[repr(u8)]

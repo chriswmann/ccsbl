@@ -6,7 +6,6 @@ use crate::{
         Instr, InstructionIndex,
     },
     error::CompileError,
-    scan,
     token::{Op, Span, Token},
 };
 
@@ -14,14 +13,6 @@ use crate::{
 pub struct Assembled<'src> {
     pub instrs: Vec<Instr<'src>>,
     pub labels: HashMap<&'src str, InstructionIndex>,
-}
-
-impl<'src> Assembled<'src> {
-    pub fn from_source(source: &'src str) -> Result<Self, Vec<CompileError<'src>>> {
-        let lexemes = scan::scan(source);
-        let spans = scan::classify(&lexemes);
-        assemble(&spans)
-    }
 }
 
 // Not worrying about stack underflow or overflow yet

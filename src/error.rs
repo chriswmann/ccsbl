@@ -1,4 +1,4 @@
-use std::{error::Error, fmt};
+use std::fmt;
 use std::{
     io::{self, Write},
     path::PathBuf,
@@ -22,9 +22,6 @@ pub enum CompileError<'src> {
 
     #[error("Label {label} on line {} is not unique", line + 1)]
     NotUniqueLabel { label: &'src str, line: usize },
-
-    #[error("Compiler error")]
-    Compiler,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -62,11 +59,6 @@ impl BadJumpTargets {
 
     pub fn push(&mut self, bad_target: BadJumpTarget) {
         self.targets.push(bad_target);
-    }
-
-    #[cfg(test)]
-    pub fn targets(&self) -> Vec<BadJumpTarget> {
-        self.targets.to_vec()
     }
 }
 
@@ -125,9 +117,6 @@ pub enum FileError {
         source: std::io::Error,
     },
 
-    #[error("Unknown save location: {path}")]
-    UnknownSaveLocation { path: PathBuf },
-
     #[error("Unknown file format: {path}")]
     UnknownFileFormat { path: PathBuf },
 
@@ -142,9 +131,6 @@ pub enum FileError {
 pub enum AppError {
     #[error("Execution failed")]
     ExecutionFailure(i32),
-
-    #[error("Execution failed and cannot report why")]
-    ExecutionAndReportingFailure(i32),
 }
 
 pub fn report<W: Write>(err: impl std::error::Error, w: &mut W) -> io::Result<()> {

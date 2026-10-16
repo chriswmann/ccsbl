@@ -38,10 +38,6 @@ fn main() {
         Commands::Load { file_path } => match load(file_path) {
             Ok(asm) => asm,
             Err(AppError::ExecutionFailure(code)) => exit(code),
-            Err(AppError::ExecutionAndReportingFailure(code)) => {
-                eprintln!("Encountered an error while trying to report errors");
-                exit(code);
-            }
         },
     };
     let mut stdout = std::io::stdout().lock();
