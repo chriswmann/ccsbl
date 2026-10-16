@@ -15,7 +15,7 @@ pub enum BytecodeOp {
     Mul = 0x06,   // (a b -- a·b)
     Div = 0x07,   // (a b -- a÷b)
     Neg = 0x08,   // (a -- -a)
-    // Mod = 0x09,    // (-a -- a)
+    Mod = 0x09,   // (a b -- a%b)
     // Dup = 0x0a,    // (a -- a a)
     // Over = 0x0b,   // (a b -- a b a)
     // Swap = 0x0c,   // (a b -- b a)
@@ -41,6 +41,7 @@ pub enum Instr<'src> {
     Mul { line: usize },
     Div { line: usize },
     Neg { line: usize },
+    Mod { line: usize },
     Jmp { target: &'src str, line: usize },
     Print { line: usize },
     Halt { line: usize },
@@ -56,6 +57,7 @@ pub enum AsmInstr {
     Mul,
     Div,
     Neg,
+    Mod,
     Jmp(InstructionIndex),
     Print,
     Halt,
@@ -86,6 +88,7 @@ impl fmt::Display for AsmInstr {
             Self::Mul => write!(f, "Mul"),
             Self::Div => write!(f, "Div"),
             Self::Neg => write!(f, "Neg"),
+            Self::Mod => write!(f, "Mod"),
             Self::Jmp(offset) => write!(f, "Jump to {offset}"),
             Self::Print => write!(f, "Print"),
             Self::Halt => write!(f, "Halt"),
@@ -109,6 +112,7 @@ impl AsmInstr {
             | AsmInstr::Mul
             | AsmInstr::Div
             | AsmInstr::Neg
+            | AsmInstr::Mod
             | AsmInstr::Print
             | AsmInstr::Halt => {}
         }
@@ -148,6 +152,7 @@ impl AsmInstr {
             BytecodeOp::Mul => (Self::Mul, Self::Mul.size()),
             BytecodeOp::Div => (Self::Div, Self::Div.size()),
             BytecodeOp::Neg => (Self::Neg, Self::Neg.size()),
+            BytecodeOp::Mod => (Self::Mod, Self::Mod.size()),
             BytecodeOp::Print => (Self::Print, Self::Print.size()),
             BytecodeOp::Halt => (Self::Halt, Self::Halt.size()),
         };
@@ -163,6 +168,7 @@ impl AsmInstr {
             Self::Mul => BytecodeOp::Mul,
             Self::Div => BytecodeOp::Div,
             Self::Neg => BytecodeOp::Neg,
+            Self::Mod => BytecodeOp::Mod,
             Self::Jmp(_) => BytecodeOp::Jmp,
             Self::Print => BytecodeOp::Print,
             Self::Halt => BytecodeOp::Halt,
@@ -177,6 +183,7 @@ impl AsmInstr {
             | Self::Mul
             | Self::Div
             | Self::Neg
+            | Self::Mod
             | Self::Print
             | Self::Halt => 1,
             Self::Push(_) => 1 + size_of::<i64>(),

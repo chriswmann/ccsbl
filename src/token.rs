@@ -35,7 +35,7 @@ pub enum Op {
     Mul,   // (a b -- a·b)
     Div,   // (a b -- a÷b)
     Neg,   // (a -- -a)
-    // Mod,    // (-a -- a)
+    Mod,   // (a b -- a%b)
     // Dup,    // (a -- a a)
     // Ove,    // (a b -- a b a)
     // Swap,   // (a b -- b a)

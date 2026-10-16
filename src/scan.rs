@@ -50,6 +50,10 @@ pub fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
                 token: Token::Op(Op::Neg),
                 line,
             }),
+            "%" | "mod" => spans.push(Span {
+                token: Token::Op(Op::Mod),
+                line,
+            }),
             "pop" => spans.push(Span {
                 token: Token::Op(Op::Pop),
                 line,
@@ -372,6 +376,18 @@ mod tests {
             Span {
                 token: Token::Op(Op::Neg),
                 line: 15,
+            },
+            Span {
+                token: Token::Value(3),
+                line: 16,
+            },
+            Span {
+                token: Token::Op(Op::Mod),
+                line: 17,
+            },
+            Span {
+                token: Token::Op(Op::Print),
+                line: 18,
             },
         ];
         assert_eq!(

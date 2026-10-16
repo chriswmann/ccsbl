@@ -76,6 +76,15 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let n = a.checked_neg().ok_or(RuntimeError::Overflow)?;
                 stack.push(n);
             }
+            AsmInstr::Mod => {
+                let a = stack.pop()?;
+                let b = stack.pop()?;
+                if a == 0 {
+                    return Err(RuntimeError::DivideByZero);
+                }
+                let n = b.checked_rem(a).ok_or(RuntimeError::Overflow)?;
+                stack.push(n);
+            }
             AsmInstr::Print => {
                 let value = stack.pop()?;
                 print(value, w)?;
@@ -130,6 +139,29 @@ mod tests {
         ];
         let mut buf = Vec::new();
         let expected = b"20\n10\n23\n";
+        execute(&asm, &mut buf).unwrap();
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn mod_truncates_towards_zero() {
+        // a = (a / b) * b + (a % b)
+        let a = -5;
+        let b = 4;
+        let asm = vec![
+            AsmInstr::Push(a),
+            AsmInstr::Push(b),
+            AsmInstr::Div,
+            AsmInstr::Push(b),
+            AsmInstr::Mul,
+            AsmInstr::Push(a),
+            AsmInstr::Push(b),
+            AsmInstr::Mod,
+            AsmInstr::Add,
+            AsmInstr::Print,
+        ];
+        let mut buf = Vec::new();
+        let expected = b"-5\n";
         execute(&asm, &mut buf).unwrap();
         assert_eq!(buf, expected);
     }

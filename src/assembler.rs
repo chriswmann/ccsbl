@@ -42,6 +42,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
                 Op::Mul => instrs.push(Instr::Mul { line }),
                 Op::Div => instrs.push(Instr::Div { line }),
                 Op::Neg => instrs.push(Instr::Neg { line }),
+                Op::Mod => instrs.push(Instr::Mod { line }),
                 Op::Jmp => {
                     if (idx + 1) < spans.len() {
                         let Span {
@@ -98,6 +99,7 @@ pub fn resolve<'src>(assembled: Assembled<'src>) -> Result<Vec<AsmInstr>, Vec<Co
             Instr::Mul { .. } => asm.push(AsmInstr::Mul),
             Instr::Div { .. } => asm.push(AsmInstr::Div),
             Instr::Neg { .. } => asm.push(AsmInstr::Neg),
+            Instr::Mod { .. } => asm.push(AsmInstr::Mod),
             Instr::Print { .. } => asm.push(AsmInstr::Print),
             Instr::Jmp { target, line } => match labels.get(target) {
                 Some(i) => asm.push(Jmp(*i)),
