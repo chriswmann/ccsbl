@@ -9,7 +9,7 @@ use tracing_subscriber::EnvFilter;
 use crate::assembler::{assemble, resolve};
 use crate::bytecode::AsmInstr;
 use crate::cli::Commands;
-use crate::error::{report, report_many, AppError, CompileError};
+use crate::error::{display_error, report, report_many, AppError, CompileError};
 use crate::file::load_source;
 use crate::program::Program;
 use crate::vm::execute;
@@ -65,19 +65,8 @@ fn load(file_path: path::PathBuf) -> Result<Vec<AsmInstr>, AppError> {
     let extension = file_path.extension().expect("should be able to get file extension as cli::validate_file ensures we have a 'ccl' or 'ccbc' file").to_string_lossy();
     match extension.as_ref() {
         "ccbc" => match Program::load(&file_path) {
-            Ok(program) => match program.decode() {
-                Ok(asm) => Ok(asm),
-                Err(err) => {
-                    let mut lock = std::io::stderr().lock();
-                    let _ = report(&err, &mut lock);
-                    Err(AppError::ExecutionFailure(1))
-                }
-            },
-            Err(err) => {
-                let mut lock = std::io::stderr().lock();
-                let _ = report(&err, &mut lock);
-                Err(AppError::ExecutionFailure(1))
-            }
+            Ok(program) => program.decode().map_err(display_error),
+            Err(err) => Err(display_error(err)),
         },
         "ccl" => match load_source(file_path) {
             Ok(source) => match compile(&source) {
@@ -94,11 +83,7 @@ fn load(file_path: path::PathBuf) -> Result<Vec<AsmInstr>, AppError> {
                     Err(AppError::ExecutionFailure(1))
                 }
             },
-            Err(err) => {
-                let mut lock = std::io::stderr().lock();
-                let _ = report(&err, &mut lock);
-                Err(AppError::ExecutionFailure(1))
-            }
+            Err(err) => Err(display_error(err)),
         },
         _ => unreachable!(
             "`cli::validate_file` ensures that the file types are either 'ccl' or 'ccbc' only"
