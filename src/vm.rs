@@ -3,6 +3,7 @@ use std::io::Write;
 
 use tracing::debug;
 
+use crate::error::{BadJumpTarget, JumpType};
 use crate::ui::print;
 use crate::{bytecode::AsmInstr, error::RuntimeError};
 
@@ -102,10 +103,24 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 stack.push(value);
             }
             AsmInstr::Jmp(instr_index) => {
+                if instr_index.0 > asm.len() {
+                    return Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTarget::from(
+                        JumpType::Jmp,
+                        instr_index.0.into(),
+                        idx.into(),
+                    )));
+                }
                 idx = instr_index.0;
                 continue;
             }
             AsmInstr::Jlt(instr_index) => {
+                if instr_index.0 > asm.len() {
+                    return Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTarget::from(
+                        JumpType::Jmp,
+                        instr_index.0.into(),
+                        idx.into(),
+                    )));
+                }
                 let a = stack.pop()?;
                 let b = stack.pop()?;
                 if b < a {

@@ -72,14 +72,25 @@ impl fmt::Display for BadJumpTargets {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+pub enum JumpType {
+    Jmp,
+    Jlt,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct BadJumpTarget {
+    jump_type: JumpType,
     target: InstructionIndex,
     idx: InstructionIndex,
 }
 
 impl BadJumpTarget {
-    pub fn from(target: InstructionIndex, idx: InstructionIndex) -> Self {
-        Self { target, idx }
+    pub fn from(jump_type: JumpType, target: InstructionIndex, idx: InstructionIndex) -> Self {
+        Self {
+            jump_type,
+            target,
+            idx,
+        }
     }
 }
 
@@ -99,6 +110,9 @@ pub enum RuntimeError {
 
     #[error("Divide by zero error")]
     DivideByZero,
+
+    #[error("One or more jump targets are for beyond the program length: {0}")]
+    JumpTargetOutOfProgram(BadJumpTarget),
 
     #[error("Error printing {message} to console ({source})")]
     Report {

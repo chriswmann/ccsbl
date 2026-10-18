@@ -7,7 +7,7 @@ use crate::{
     error::{
         BadJumpTarget, BadJumpTargets,
         BytecodeError::{self, JumpTargetOutOfProgram},
-        FileError,
+        FileError, JumpType,
     },
 };
 
@@ -122,7 +122,14 @@ impl Program {
             if let AsmInstr::Jmp(target) = &instr {
                 if target.0 > asm.len() {
                     let index = InstructionIndex::from(idx);
-                    let bad_target = BadJumpTarget::from(*target, index);
+                    let bad_target = BadJumpTarget::from(JumpType::Jmp, *target, index);
+                    invalid_targets.push(bad_target);
+                }
+            }
+            if let AsmInstr::Jlt(target) = &instr {
+                if target.0 > asm.len() {
+                    let index = InstructionIndex::from(idx);
+                    let bad_target = BadJumpTarget::from(JumpType::Jlt, *target, index);
                     invalid_targets.push(bad_target);
                 }
             }
@@ -177,7 +184,23 @@ mod tests {
         let program = Program::from_bytes(&[20, 2, 0, 0, 0, 0, 0, 0, 0]);
         let result = program.decode();
         let mut expected = BadJumpTargets::new();
-        expected.push(BadJumpTarget::from(2.into(), 0.into()));
+        expected.push(BadJumpTarget::from(JumpType::Jmp, 2.into(), 0.into()));
+        assert!(
+            matches!(
+                &result,
+                Err(BytecodeError::JumpTargetOutOfProgram(bad_jump_targets))
+                if *bad_jump_targets == expected
+            ),
+            "result was {result:?}",
+        );
+    }
+
+    #[test]
+    fn decoding_a_program_with_a_jump_less_than_past_the_last_instruction_reports_correctly() {
+        let program = Program::from_bytes(&[21, 2, 0, 0, 0, 0, 0, 0, 0]);
+        let result = program.decode();
+        let mut expected = BadJumpTargets::new();
+        expected.push(BadJumpTarget::from(JumpType::Jlt, 2.into(), 0.into()));
         assert!(
             matches!(
                 &result,
