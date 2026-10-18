@@ -108,7 +108,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
     }
 }
 
-pub fn resolve<'src>(assembled: Assembled<'src>) -> Result<Vec<AsmInstr>, Vec<CompileError<'src>>> {
+pub fn resolve(assembled: Assembled<'_>) -> Result<Vec<AsmInstr>, Vec<CompileError<'_>>> {
     let mut asm = Vec::new();
     let mut errors = Vec::new();
     let instrs = assembled.instrs;

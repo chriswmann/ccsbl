@@ -3,7 +3,7 @@ use std::path;
 
 use crate::error::FileError;
 
-pub fn load_source<'src>(file_path: impl AsRef<path::Path>) -> Result<String, FileError> {
+pub fn load_source(file_path: impl AsRef<path::Path>) -> Result<String, FileError> {
     let contents = fs::read_to_string(file_path.as_ref()).map_err(|e| FileError::File {
         path: file_path.as_ref().to_path_buf(),
         source: e,

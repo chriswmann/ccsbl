@@ -6,7 +6,7 @@ use crate::{
     bytecode::{AsmInstr, InstructionIndex},
     error::{
         BadJumpTarget, BadJumpTargets,
-        BytecodeError::{self, JumpTargetOutOfProgram},
+        BytecodeError::{self},
         FileError, JumpType,
     },
 };
@@ -34,7 +34,7 @@ impl Program {
     }
 
     // Atomic save and sync the program to disk
-    pub fn save<'src>(&self, path: &path::Path) -> Result<(), FileError> {
+    pub fn save(&self, path: &path::Path) -> Result<(), FileError> {
         let dir = path
             .parent()
             .filter(|&p| !p.as_os_str().is_empty())
@@ -69,7 +69,7 @@ impl Program {
         buf
     }
 
-    pub fn load<'src>(path: &path::Path) -> Result<Self, FileError> {
+    pub fn load(path: &path::Path) -> Result<Self, FileError> {
         let bytes = fs::read(path).map_err(|err| FileError::Io { source: err })?;
         let (magic_bytes, rest) =
             bytes
