@@ -4,7 +4,7 @@ use std::io::Write;
 use tracing::debug;
 
 use crate::bytecode::InstructionIndex;
-use crate::error::{BadJumpTarget, JumpType};
+use crate::error::{BadJumpTarget, BadJumpTargets, JumpType};
 use crate::ui::print;
 use crate::{bytecode::AsmInstr, error::RuntimeError};
 
@@ -40,6 +40,7 @@ impl fmt::Display for Stack {
 pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError> {
     let mut stack = Stack::new();
     let mut idx = 0;
+    check_jump_targets(asm)?;
     loop {
         debug!("stack: {}", stack.to_string());
         let Some(instr) = asm.get(idx) else {
@@ -128,24 +129,10 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 stack.push(*value);
             }
             AsmInstr::Jmp(instr_index) => {
-                if instr_index.0 > asm.len() {
-                    return Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTarget::from(
-                        JumpType::Jmp,
-                        instr_index.0.into(),
-                        idx.into(),
-                    )));
-                }
                 idx = instr_index.0;
                 continue;
             }
             &instr @ AsmInstr::Jlt(instr_index) => {
-                if instr_index.0 > asm.len() {
-                    return Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTarget::from(
-                        JumpType::Jmp,
-                        instr_index.0.into(),
-                        idx.into(),
-                    )));
-                }
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
                 if b < a {
@@ -158,6 +145,35 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
             }
         }
         idx += 1;
+    }
+}
+
+fn check_jump_targets(asm: &[AsmInstr]) -> Result<(), RuntimeError> {
+    let mut bad_targets = BadJumpTargets::new();
+    for (idx, instr) in asm.iter().enumerate() {
+        if let AsmInstr::Jmp(target) = instr {
+            if target.0 > asm.len() {
+                bad_targets.push(BadJumpTarget::from(
+                    JumpType::Jmp,
+                    *target,
+                    InstructionIndex::from(idx),
+                ));
+            }
+        }
+        if let AsmInstr::Jlt(target) = instr {
+            if target.0 > asm.len() {
+                bad_targets.push(BadJumpTarget::from(
+                    JumpType::Jlt,
+                    *target,
+                    InstructionIndex::from(idx),
+                ));
+            }
+        }
+    }
+    if bad_targets.is_empty() {
+        Ok(())
+    } else {
+        Err(RuntimeError::JumpTargetOutOfProgram(bad_targets))
     }
 }
 
@@ -182,6 +198,38 @@ mod tests {
             if *instr == AsmInstr::Pop && *ind == InstructionIndex::from(2)
             ),
             "expected StackUnderFlow but got {result:?}",
+        );
+    }
+
+    #[test]
+    fn execute_reports_bad_jump_target_when_target_is_beyond_the_program_end() {
+        let asm = vec![
+            AsmInstr::Jmp(InstructionIndex::from(3)),
+            AsmInstr::Jlt(InstructionIndex::from(3)),
+        ];
+        let mut buf = Vec::new();
+        let expected = vec![
+            BadJumpTarget::from(
+                JumpType::Jmp,
+                InstructionIndex::from(3),
+                InstructionIndex::from(0),
+            ),
+            BadJumpTarget::from(
+                JumpType::Jlt,
+                InstructionIndex::from(3),
+                InstructionIndex::from(1),
+            ),
+        ];
+        let result = execute(&asm, &mut buf);
+        assert!(
+            matches!(
+                &result,
+                Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTargets {
+                    targets
+                }))
+                    if *targets == expected
+            ),
+            "expected {expected:?} but got targets from {result:?}"
         );
     }
 

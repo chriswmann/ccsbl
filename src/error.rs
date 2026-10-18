@@ -45,7 +45,7 @@ pub enum BytecodeError {
 
 #[derive(Debug, PartialEq)]
 pub struct BadJumpTargets {
-    targets: Vec<BadJumpTarget>,
+    pub targets: Vec<BadJumpTarget>,
 }
 
 impl BadJumpTargets {
@@ -137,7 +137,7 @@ pub enum RuntimeError {
     },
 
     #[error("One or more jump targets are for beyond the program length: {0}")]
-    JumpTargetOutOfProgram(BadJumpTarget),
+    JumpTargetOutOfProgram(BadJumpTargets),
 
     #[error("Error printing {message} to console ({source})")]
     Report {
