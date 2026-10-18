@@ -29,75 +29,30 @@ pub fn scan(code: &str) -> Vec<Lexeme<'_>> {
 pub fn classify<'src>(lexemes: &[Lexeme<'src>]) -> Vec<Span<'src>> {
     let mut spans = Vec::new();
     for &Lexeme { text, line } in lexemes {
-        match text {
-            "add" | "+" => spans.push(Span {
-                token: Token::Op(Op::Add),
-                line,
-            }),
-            "sub" | "-" => spans.push(Span {
-                token: Token::Op(Op::Sub),
-                line,
-            }),
-            "mul" | "*" => spans.push(Span {
-                token: Token::Op(Op::Mul),
-                line,
-            }),
-            "div" | "/" => spans.push(Span {
-                token: Token::Op(Op::Div),
-                line,
-            }),
-            "neg" | "negate" => spans.push(Span {
-                token: Token::Op(Op::Neg),
-                line,
-            }),
-            "%" | "mod" => spans.push(Span {
-                token: Token::Op(Op::Mod),
-                line,
-            }),
-            "dup" => spans.push(Span {
-                token: Token::Op(Op::Dup),
-                line,
-            }),
-            "pop" => spans.push(Span {
-                token: Token::Op(Op::Pop),
-                line,
-            }),
-            "print" => spans.push(Span {
-                token: Token::Op(Op::Print),
-                line,
-            }),
-            "jmp" => spans.push(Span {
-                token: Token::Op(Op::Jmp),
-                line,
-            }),
-            "jlt" => spans.push(Span {
-                token: Token::Op(Op::Jlt),
-                line,
-            }),
-            "halt" => spans.push(Span {
-                token: Token::Op(Op::Halt),
-                line,
-            }),
+        let token = match text {
+            "add" | "+" => Token::Op(Op::Add),
+            "sub" | "-" => Token::Op(Op::Sub),
+            "mul" | "*" => Token::Op(Op::Mul),
+            "div" | "/" => Token::Op(Op::Div),
+            "neg" | "negate" => Token::Op(Op::Neg),
+            "%" | "mod" => Token::Op(Op::Mod),
+            "dup" => Token::Op(Op::Dup),
+            "pop" => Token::Op(Op::Pop),
+            "print" => Token::Op(Op::Print),
+            "jmp" => Token::Op(Op::Jmp),
+            "jlt" => Token::Op(Op::Jlt),
+            "halt" => Token::Op(Op::Halt),
             other => {
-                if other.ends_with(':') {
-                    let label = other.strip_suffix(':').expect("should be able to strip ':' suffix because we checked `other.ends_with(':')` above");
-                    spans.push(Span {
-                        token: Token::Label(label),
-                        line,
-                    });
-                } else if let Ok(num) = &str::parse::<i64>(other) {
-                    spans.push(Span {
-                        token: Token::Value(*num),
-                        line,
-                    });
+                if let Some(label) = other.strip_suffix(':') {
+                    Token::Label(label)
+                } else if let Ok(num) = str::parse::<i64>(other) {
+                    Token::Value(num)
                 } else {
-                    spans.push(Span {
-                        token: Token::Ident(other),
-                        line,
-                    });
+                    Token::Ident(other)
                 }
             }
-        }
+        };
+        spans.push(Span::new(token, line));
     }
 
     spans

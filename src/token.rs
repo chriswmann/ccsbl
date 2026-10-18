@@ -25,6 +25,12 @@ pub struct Span<'src> {
     pub line: usize,
 }
 
+impl<'src> Span<'src> {
+    pub fn new(token: Token<'src>, line: usize) -> Self {
+        Self { token, line }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Op {
     // Push,  // ( -- a)
