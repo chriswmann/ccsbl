@@ -52,7 +52,7 @@ pub enum Instr<'src> {
 }
 
 // Bytecode instructions
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AsmInstr {
     Push(i64),
     Pop,
@@ -68,7 +68,6 @@ pub enum AsmInstr {
     Print,
     Halt,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InstructionIndex(pub usize);
 

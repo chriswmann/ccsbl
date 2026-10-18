@@ -3,6 +3,7 @@ use std::io::Write;
 
 use tracing::debug;
 
+use crate::bytecode::InstructionIndex;
 use crate::error::{BadJumpTarget, JumpType};
 use crate::ui::print;
 use crate::{bytecode::AsmInstr, error::RuntimeError};
@@ -19,10 +20,10 @@ impl Stack {
         self.0.push(value);
     }
 
-    fn pop(&mut self) -> Result<i64, RuntimeError> {
+    fn pop(&mut self, instr: AsmInstr, ind: InstructionIndex) -> Result<i64, RuntimeError> {
         match self.0.pop() {
             Some(value) => Ok(value),
-            None => Err(RuntimeError::StackUnderFlow),
+            None => Err(RuntimeError::StackUnderFlow { instr, ind }),
         }
     }
 }
@@ -44,63 +45,81 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
         let Some(instr) = asm.get(idx) else {
             return Ok(());
         };
-        match instr.clone() {
-            AsmInstr::Add => {
-                let a = stack.pop()?;
-                let b = stack.pop()?;
-                let c = a.checked_add(b).ok_or(RuntimeError::Overflow)?;
+        match instr {
+            &instr @ AsmInstr::Add => {
+                let a = stack.pop(instr, idx.into())?;
+                let b = stack.pop(instr, idx.into())?;
+                let c = a.checked_add(b).ok_or(RuntimeError::StackOverflow {
+                    instr,
+                    ind: idx.into(),
+                })?;
                 stack.push(c);
             }
-            AsmInstr::Sub => {
-                let a = stack.pop()?;
-                let b = stack.pop()?;
-                let c = b.checked_sub(a).ok_or(RuntimeError::Overflow)?;
+            &instr @ AsmInstr::Sub => {
+                let a = stack.pop(instr, idx.into())?;
+                let b = stack.pop(instr, idx.into())?;
+                let c = b.checked_sub(a).ok_or(RuntimeError::StackOverflow {
+                    instr,
+                    ind: idx.into(),
+                })?;
                 stack.push(c);
             }
-            AsmInstr::Mul => {
-                let a = stack.pop()?;
-                let b = stack.pop()?;
-                let p = a.checked_mul(b).ok_or(RuntimeError::Overflow)?;
+            &instr @ AsmInstr::Mul => {
+                let a = stack.pop(instr, idx.into())?;
+                let b = stack.pop(instr, idx.into())?;
+                let p = a.checked_mul(b).ok_or(RuntimeError::StackOverflow {
+                    instr,
+                    ind: idx.into(),
+                })?;
                 stack.push(p);
             }
-            AsmInstr::Div => {
-                let a = stack.pop()?;
-                let b = stack.pop()?;
+            &instr @ AsmInstr::Div => {
+                let a = stack.pop(instr, idx.into())?;
+                let b = stack.pop(instr, idx.into())?;
                 if a == 0 {
                     return Err(RuntimeError::DivideByZero);
                 }
-                let d = b.checked_div(a).ok_or(RuntimeError::Overflow)?;
+                let d = b.checked_div(a).ok_or(RuntimeError::StackOverflow {
+                    instr,
+                    ind: idx.into(),
+                })?;
                 stack.push(d);
             }
-            AsmInstr::Neg => {
-                let a = stack.pop()?;
-                let n = a.checked_neg().ok_or(RuntimeError::Overflow)?;
+            &instr @ AsmInstr::Neg => {
+                let a = stack.pop(instr, idx.into())?;
+                let n = a.checked_neg().ok_or(RuntimeError::StackOverflow {
+                    instr,
+                    ind: idx.into(),
+                })?;
                 stack.push(n);
             }
-            AsmInstr::Mod => {
-                let a = stack.pop()?;
-                let b = stack.pop()?;
+            &instr @ AsmInstr::Mod => {
+                let a = stack.pop(instr, idx.into())?;
+                let b = stack.pop(instr, idx.into())?;
                 if a == 0 {
                     return Err(RuntimeError::DivideByZero);
                 }
-                let n = b.checked_rem(a).ok_or(RuntimeError::Overflow)?;
+                let n = b.checked_rem(a).ok_or(RuntimeError::StackOverflow {
+                    instr,
+                    ind: idx.into(),
+                })?;
                 stack.push(n);
             }
-            AsmInstr::Dup => {
-                let a = stack.pop()?;
+            &instr @ AsmInstr::Dup => {
+                let a = stack.pop(instr, idx.into())?;
                 let b = a;
                 stack.push(a);
                 stack.push(b);
             }
-            AsmInstr::Print => {
-                let value = stack.pop()?;
+            &instr @ AsmInstr::Print => {
+                let value = stack.pop(instr, idx.into())?;
                 print(value, w)?;
             }
-            AsmInstr::Pop => {
-                stack.pop()?;
+            &instr @ AsmInstr::Pop => {
+                stack.pop(instr, idx.into())?;
             }
             AsmInstr::Push(value) => {
-                stack.push(value);
+                stack.push(*value);
             }
             AsmInstr::Jmp(instr_index) => {
                 if instr_index.0 > asm.len() {
@@ -113,7 +132,7 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 idx = instr_index.0;
                 continue;
             }
-            AsmInstr::Jlt(instr_index) => {
+            &instr @ AsmInstr::Jlt(instr_index) => {
                 if instr_index.0 > asm.len() {
                     return Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTarget::from(
                         JumpType::Jmp,
@@ -121,8 +140,8 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                         idx.into(),
                     )));
                 }
-                let a = stack.pop()?;
-                let b = stack.pop()?;
+                let a = stack.pop(instr, idx.into())?;
+                let b = stack.pop(instr, idx.into())?;
                 if b < a {
                     idx = instr_index.0;
                     continue;
@@ -142,16 +161,20 @@ mod tests {
 
     #[test]
     fn execute_reports_stack_underflow_when_stack_is_exhausted() {
-        let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
+        let asm = vec![AsmInstr::Pop];
         let result = execute(&asm, &mut Vec::new());
         assert!(
-            matches!(&result, Err(RuntimeError::StackUnderFlow),),
+            matches!(&result, Err(RuntimeError::StackUnderFlow { instr, ind })
+            if *instr == AsmInstr::Pop && *ind == InstructionIndex::from(0)
+            ),
             "expected StackUnderFlow but got {result:?}",
         );
         let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
         let result = execute(&asm, &mut Vec::new());
         assert!(
-            matches!(&result, Err(RuntimeError::StackUnderFlow),),
+            matches!(&result, Err(RuntimeError::StackUnderFlow { instr, ind })
+            if *instr == AsmInstr::Pop && *ind == InstructionIndex::from(2)
+            ),
             "expected StackUnderFlow but got {result:?}",
         );
     }

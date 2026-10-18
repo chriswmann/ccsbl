@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::bytecode::AsmInstr;
+use crate::token::Op;
 use crate::{bytecode::InstructionIndex, token::Token};
 
 #[derive(thiserror::Error, Debug)]
@@ -102,11 +104,17 @@ impl fmt::Display for BadJumpTarget {
 
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
-    #[error("Stack underflow error")]
-    StackUnderFlow,
+    #[error("Stack underflow error during operation {instr} at instruction index {ind}")]
+    StackUnderFlow {
+        instr: AsmInstr,
+        ind: InstructionIndex,
+    },
 
-    #[error("Overflow error")]
-    Overflow,
+    #[error("Stack overflow error during operation {instr} at instruction index {ind}")]
+    StackOverflow {
+        instr: AsmInstr,
+        ind: InstructionIndex,
+    },
 
     #[error("Divide by zero error")]
     DivideByZero,
