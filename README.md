@@ -2,8 +2,8 @@
 
 This is a toy stack based language, roughly following Forth's syntax.
 
-It's part written, with a preliminary scanner in place and the assembler on its
-way. There's nothing special or clever about it, it's just a learning exercise.
+It's a work in progress but supports basic arithmetic, jumps, a conditional jump
+(`jlt`) and comments.
 
 ## Example
 
