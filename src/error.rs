@@ -79,6 +79,16 @@ pub enum JumpType {
     Jlt,
 }
 
+impl fmt::Display for JumpType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let jump_type = match self {
+            Self::Jmp => "Jmp",
+            Self::Jlt => "Jlt",
+        };
+        f.write_str(jump_type)
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct BadJumpTarget {
     jump_type: JumpType,
@@ -98,7 +108,11 @@ impl BadJumpTarget {
 
 impl fmt::Display for BadJumpTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Target: {:16} index: {:16}", self.target, self.idx)
+        writeln!(
+            f,
+            "Type: {:10} Target: {:16} index: {:16}",
+            self.jump_type, self.target, self.idx
+        )
     }
 }
 

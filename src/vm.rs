@@ -243,6 +243,7 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn mod_by_zero_reports_error() {
         let asm = vec![AsmInstr::Push(1), AsmInstr::Push(0), AsmInstr::Mod];
