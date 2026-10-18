@@ -116,8 +116,11 @@ pub enum RuntimeError {
         ind: InstructionIndex,
     },
 
-    #[error("Divide by zero error")]
-    DivideByZero,
+    #[error("Divide by zero error during operation {instr} at instruction index {ind}")]
+    DivideByZero {
+        instr: AsmInstr,
+        ind: InstructionIndex,
+    },
 
     #[error("One or more jump targets are for beyond the program length: {0}")]
     JumpTargetOutOfProgram(BadJumpTarget),

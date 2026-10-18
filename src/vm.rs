@@ -77,7 +77,10 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
                 if a == 0 {
-                    return Err(RuntimeError::DivideByZero);
+                    return Err(RuntimeError::DivideByZero {
+                        instr,
+                        ind: idx.into(),
+                    });
                 }
                 let d = b.checked_div(a).ok_or(RuntimeError::StackOverflow {
                     instr,
@@ -97,7 +100,10 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
                 if a == 0 {
-                    return Err(RuntimeError::DivideByZero);
+                    return Err(RuntimeError::DivideByZero {
+                        instr,
+                        ind: idx.into(),
+                    });
                 }
                 let n = b.checked_rem(a).ok_or(RuntimeError::StackOverflow {
                     instr,
@@ -216,5 +222,42 @@ mod tests {
         let expected = b"-5\n";
         execute(&asm, &mut buf).unwrap();
         assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn divide_by_zero_reports_error() {
+        let asm = vec![AsmInstr::Push(1), AsmInstr::Push(0), AsmInstr::Div];
+        let mut buf = Vec::new();
+        match execute(&asm, &mut buf) {
+            Ok(()) => {
+                panic!(
+                    "expected divide by zero to return RuntimeError::DivideByZero but got Ok(())"
+                )
+            }
+            Err(RuntimeError::DivideByZero { instr, ind }) => {
+                assert_eq!(instr, AsmInstr::Div);
+                assert_eq!(ind, InstructionIndex::from(2));
+            }
+            Err(err) => {
+                panic!("expected divide by zero to return RuntimeError::DivideByZero but got {err}")
+            }
+        }
+    }
+    #[test]
+    fn mod_by_zero_reports_error() {
+        let asm = vec![AsmInstr::Push(1), AsmInstr::Push(0), AsmInstr::Mod];
+        let mut buf = Vec::new();
+        match execute(&asm, &mut buf) {
+            Ok(()) => {
+                panic!("expected mod by zero to return RuntimeError::DivideByZero but got Ok(())")
+            }
+            Err(RuntimeError::DivideByZero { instr, ind }) => {
+                assert_eq!(instr, AsmInstr::Mod);
+                assert_eq!(ind, InstructionIndex::from(2));
+            }
+            Err(err) => {
+                panic!("expected mod by zero to return RuntimeError::DivideByZero but got {err}")
+            }
+        }
     }
 }
