@@ -8,17 +8,6 @@ use crate::bytecode::AsmInstr;
 use crate::{bytecode::InstructionIndex, token::Token};
 
 #[derive(thiserror::Error, Debug)]
-pub enum OperationError {
-    #[error(
-        "The provided arguments ({input_file:?}, {output_file:?}) do not form a recognised operation"
-    )]
-    UnknownOperation {
-        input_file: Option<path::PathBuf>,
-        output_file: Option<path::PathBuf>,
-    },
-}
-
-#[derive(thiserror::Error, Debug)]
 pub enum CompileError<'src> {
     #[error("Unrecognised token: '{token}' on line {}", line + 1)]
     Token { token: Token<'src>, line: usize },

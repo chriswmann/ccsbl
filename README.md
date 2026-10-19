@@ -5,6 +5,13 @@ This is a toy stack based language, roughly following Forth's syntax.
 It's a work in progress but supports basic arithmetic, jumps, a conditional jump
 (`jlt`) and comments.
 
+## Usage
+
+- Run the REPL (not implemented yet): `ccsbl`
+- Execute a ccl script: `ccsbl FILE`
+- Compile a script and save it as bytecode (not implemented yet):
+`ccsbl INFILE -o OUTFILE {--force required to overwrite existing OUTFILE}`
+
 ## Example
 
 This example uses supported operations. Stack comments show the effect of each

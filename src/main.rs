@@ -35,9 +35,9 @@ fn main() {
         .init();
 
     let args = cli::Cli::parse();
-    let operation = Operation::try_from(args);
+    let operation = Operation::from(args);
     match operation {
-        Ok(Operation::Execute { input_file }) => {
+        Operation::Execute { input_file } => {
             let asm = match load(input_file) {
                 Ok(asm) => asm,
                 Err(AppError::ExecutionFailure(code)) => exit(code),
@@ -61,17 +61,11 @@ fn main() {
                 exit(2);
             }
         }
-        Ok(Operation::Serialise {
+        Operation::Serialise {
             input_file: _input_file,
             output_file: _output_file,
-        }) => println!("TBD"),
-        Err(err) => {
-            let mut stderr = std::io::stderr().lock();
-            if report(err, &mut stderr).is_err() {
-                eprintln!("Usage: `ccsbl <INPUT_FILE> <OUTPUT_FILE> (optional)`");
-                exit(1);
-            }
-        }
+            force: _force,
+        } => println!("TBD"),
     }
 }
 

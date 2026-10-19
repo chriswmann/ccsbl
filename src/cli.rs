@@ -2,15 +2,16 @@ use std::path;
 
 use clap::Parser;
 
-use crate::error::OperationError;
-
 #[derive(Debug, Parser)]
 pub struct Cli {
     #[arg()]
     pub input_file: Option<path::PathBuf>,
 
-    #[arg()]
+    #[arg(short, long, requires = "input_file")]
     pub output_file: Option<path::PathBuf>,
+
+    #[arg(short, long, requires = "output_file")]
+    pub force: bool,
 }
 
 #[derive(Debug)]
@@ -21,26 +22,28 @@ pub enum Operation {
     Serialise {
         input_file: path::PathBuf,
         output_file: path::PathBuf,
+        force: bool,
     },
 }
 
-impl TryFrom<Cli> for Operation {
-    type Error = OperationError;
-    fn try_from(value: Cli) -> Result<Self, Self::Error> {
+impl From<Cli> for Operation {
+    fn from(value: Cli) -> Self {
         let Cli {
             input_file,
             output_file,
+            force,
         } = value;
-        match (input_file.clone(), output_file.clone()) {
-            (None, Some(_) | None) => Err(OperationError::UnknownOperation {
+        match (input_file, output_file, force) {
+            (None, ..) => {
+                eprintln!("The REPL is not implemented yet.");
+                std::process::exit(0);
+            }
+            (Some(input_file), None, _) => Self::Execute { input_file },
+            (Some(input_file), Some(output_file), force) => Self::Serialise {
                 input_file,
                 output_file,
-            }),
-            (Some(input_file), None) => Ok(Self::Execute { input_file }),
-            (Some(input_file), Some(output_file)) => Ok(Self::Serialise {
-                input_file,
-                output_file,
-            }),
+                force,
+            },
         }
     }
 }
