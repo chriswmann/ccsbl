@@ -1,12 +1,22 @@
 use std::fmt;
 use std::{
     io::{self, Write},
-    path::PathBuf,
+    path,
 };
 
 use crate::bytecode::AsmInstr;
-use crate::token::Op;
 use crate::{bytecode::InstructionIndex, token::Token};
+
+#[derive(thiserror::Error, Debug)]
+pub enum OperationError {
+    #[error(
+        "The provided arguments ({input_file:?}, {output_file:?}) do not form a recognised operation"
+    )]
+    UnknownOperation {
+        input_file: Option<path::PathBuf>,
+        output_file: Option<path::PathBuf>,
+    },
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum CompileError<'src> {
@@ -157,7 +167,7 @@ pub enum FileError {
     },
 
     #[error("Unknown file format: {path}")]
-    UnknownFileFormat { path: PathBuf },
+    UnknownFileFormat { path: path::PathBuf },
 
     #[error("IO error: {source}")]
     Io {
