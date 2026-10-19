@@ -8,7 +8,6 @@ use tracing_subscriber::EnvFilter;
 
 use crate::assembler::{assemble, resolve};
 use crate::bytecode::AsmInstr;
-use crate::cli::Commands;
 use crate::error::{display_error, report, report_many, AppError, CompileError};
 use crate::file::load_source;
 use crate::program::Program;
@@ -35,28 +34,31 @@ fn main() {
         .init();
 
     let args = cli::Cli::parse();
-    let asm = match args.command {
-        Commands::Load { file_path } => match load(file_path) {
+    if let Some(input_file) = args.input_file {
+        let asm = match load(input_file) {
             Ok(asm) => asm,
             Err(AppError::ExecutionFailure(code)) => exit(code),
-        },
-    };
-    let mut stdout = std::io::stdout().lock();
+        };
+        let mut stdout = std::io::stdout().lock();
 
-    let execution_result = execute(&asm, &mut stdout);
-    let flush_result = stdout.flush();
-    drop(stdout);
+        let execution_result = execute(&asm, &mut stdout);
+        let flush_result = stdout.flush();
+        drop(stdout);
 
-    if execution_result.is_err() || flush_result.is_err() {
-        let mut stderr = std::io::stderr().lock();
+        if execution_result.is_err() || flush_result.is_err() {
+            let mut stderr = std::io::stderr().lock();
 
-        if let Err(err) = execution_result {
-            let _ = report(err, &mut stderr);
+            if let Err(err) = execution_result {
+                let _ = report(err, &mut stderr);
+            }
+
+            if let Err(err) = flush_result {
+                let _ = writeln!(stderr, "Failed to flush program output: {err}");
+            }
+            exit(2);
         }
-
-        if let Err(err) = flush_result {
-            let _ = writeln!(stderr, "Failed to flush program output: {err}");
-        }
+    } else {
+        eprintln!("Usage: `ccsbl <INPUT_FILE> <OUTPUT_FILE> (optional)`");
         exit(1);
     }
 }

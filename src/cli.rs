@@ -1,18 +1,13 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use std::path;
 
 #[derive(Debug, Parser)]
 pub struct Cli {
-    #[command(subcommand)]
-    pub command: Commands,
-}
+    #[arg(value_parser = validate_file)]
+    pub input_file: Option<path::PathBuf>,
 
-#[derive(Subcommand, Debug)]
-pub enum Commands {
-    Load {
-        #[arg(value_parser = validate_file)]
-        file_path: path::PathBuf,
-    },
+    #[arg(value_parser = validate_file)]
+    pub output_file: Option<path::PathBuf>,
 }
 
 fn validate_file(path: &str) -> Result<path::PathBuf, String> {
