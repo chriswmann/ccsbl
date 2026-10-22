@@ -9,7 +9,7 @@ use tracing_subscriber::EnvFilter;
 use crate::assembler::{assemble, resolve};
 use crate::bytecode::AsmInstr;
 use crate::cli::Operation;
-use crate::error::{display_error, report, report_many, AppError, CompileError};
+use crate::error::{display_error, report, AppError, CompileError};
 use crate::file::load_source;
 use crate::program::Program;
 use crate::vm::execute;
@@ -38,9 +38,29 @@ fn main() {
     let operation = Operation::from(args);
     match operation {
         Operation::Execute { input_file } => {
-            let asm = match load(input_file) {
+            let asm = match load(&input_file) {
                 Ok(asm) => asm,
-                Err(AppError::ExecutionFailure(code)) => exit(code),
+                Err(AppError::ExecutionFailure(code)) => {
+                    let source = match load_source(&input_file) {
+                        Ok(source) => source,
+                        Err(err) => {
+                            let _ = display_error(err);
+                            exit(code);
+                        }
+                    };
+                    match compile(&source) {
+                        Ok(asm) => asm,
+                        Err(errs) => {
+                            let mut code = 0;
+                            for err in errs {
+                                let AppError::ExecutionFailure(display_err_code) =
+                                    display_error(err);
+                                code = display_err_code;
+                            }
+                            exit(code);
+                        }
+                    }
+                }
             };
             let mut stdout = std::io::stdout().lock();
 
@@ -70,36 +90,23 @@ fn main() {
 }
 
 #[instrument]
-fn load(file_path: path::PathBuf) -> Result<Vec<AsmInstr>, AppError> {
-    let extension = file_path.extension().expect("should be able to get file extension as cli::validate_file ensures we have a 'ccl' or 'ccbc' file").to_string_lossy();
-    match extension.as_ref() {
-        "ccbc" => match Program::load(&file_path) {
-            Ok(program) => program.decode().map_err(display_error),
-            Err(err) => Err(display_error(err)),
-        },
-        "ccl" => match load_source(file_path) {
-            Ok(source) => match compile(&source) {
-                Ok(asm) => Ok(asm),
-                Err(errs) => {
-                    let mut lock = std::io::stderr().lock();
-                    let report_results = report_many(&errs, &mut lock);
-                    if let Err(errors) = report_results {
-                        let mut stderr = std::io::stderr().lock();
-                        for error in errors {
-                            let _ = writeln!(stderr, "Failed to report compilation error: {error}");
-                        }
-                    }
-                    Err(AppError::ExecutionFailure(1))
-                }
-            },
-            Err(err) => Err(display_error(err)),
-        },
-        _ => unreachable!(
-            "`cli::validate_file` ensures that the file types are either 'ccl' or 'ccbc' only"
-        ),
-    }
+fn load(file_path: &path::Path) -> Result<Vec<AsmInstr>, AppError> {
+    let progam = match Program::load(file_path) {
+        Ok(program) => program,
+        Err(file_err) => {
+            return Err(display_error(file_err));
+        }
+    };
+    let asm = match progam.decode() {
+        Ok(asm) => asm,
+        Err(err) => {
+            return Err(display_error(err));
+        }
+    };
+    Ok(asm)
 }
 
+#[instrument]
 fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<CompileError<'_>>> {
     let lexemes = scan::scan(source);
     let spans = scan::classify(&lexemes);
