@@ -5,7 +5,7 @@ use clap::Parser;
 
 use tracing_subscriber::EnvFilter;
 
-use ccsbl::{compile, display_error, execute, load, load_source, report, AppError, Cli, Operation};
+use ccsbl::{compile_file, display_error, execute, report, AppError, Cli, Operation};
 
 fn main() {
     tracing_subscriber::fmt()
@@ -20,28 +20,11 @@ fn main() {
     let operation = Operation::from(args);
     match operation {
         Operation::Execute { input_file } => {
-            let asm = match load(&input_file) {
+            let asm = match compile_file(&input_file) {
                 Ok(asm) => asm,
-                Err(AppError::ExecutionFailure(code)) => {
-                    let source = match load_source(&input_file) {
-                        Ok(source) => source,
-                        Err(err) => {
-                            let _ = display_error(err);
-                            exit(code);
-                        }
-                    };
-                    match compile(&source) {
-                        Ok(asm) => asm,
-                        Err(errs) => {
-                            let mut code = 0;
-                            for err in errs {
-                                let AppError::ExecutionFailure(display_err_code) =
-                                    display_error(err);
-                                code = display_err_code;
-                            }
-                            exit(code);
-                        }
-                    }
+                Err(app_err) => {
+                    let AppError::ExecutionFailure(code) = display_error(app_err);
+                    exit(code);
                 }
             };
             let mut stdout = std::io::stdout().lock();

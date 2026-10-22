@@ -47,3 +47,40 @@ pub fn load(file_path: &path::Path) -> Result<Vec<AsmInstr>, AppError> {
     };
     Ok(asm)
 }
+
+#[instrument]
+pub fn compile_file(input_file: &path::Path) -> Result<Vec<AsmInstr>, AppError> {
+    let asm = match load(&input_file) {
+        Ok(asm) => asm,
+        Err(AppError::ExecutionFailure(code)) => {
+            let source = match load_source(&input_file) {
+                Ok(source) => source,
+                Err(err) => {
+                    let AppError::ExecutionFailure(code) = display_error(err);
+                    Err(AppError::ExecutionFailure(code))?
+                }
+            };
+            match compile(&source) {
+                Ok(asm) => asm,
+                Err(errs) => {
+                    let mut code = 0;
+                    for err in errs {
+                        let AppError::ExecutionFailure(display_err_code) = display_error(err);
+                        code = display_err_code;
+                    }
+                    Err(AppError::ExecutionFailure(code))?
+                }
+            }
+        }
+    };
+    Ok(asm)
+}
+
+#[instrument]
+pub fn serialise(
+    input_file: &path::Path,
+    output_file: &mut path::Path,
+    force: bool,
+) -> Result<(), SerialiseError> {
+    Ok(())
+}
