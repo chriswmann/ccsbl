@@ -5,9 +5,9 @@ use tempfile::NamedTempFile;
 use crate::{
     bytecode::{AsmInstr, InstructionIndex},
     error::{
-        BadJumpTarget, BadJumpTargets,
+        AppError, BadJumpTarget, BadJumpTargets,
         BytecodeError::{self},
-        FileError, JumpType,
+        JumpType,
     },
 };
 
@@ -34,31 +34,31 @@ impl Program {
     }
 
     // Atomic save and sync the program to disk
-    pub fn save(&self, path: &path::Path) -> Result<(), FileError> {
+    pub fn save(&self, path: &path::Path) -> Result<(), AppError> {
         let dir = path
             .parent()
             .filter(|&p| !p.as_os_str().is_empty())
             .unwrap_or_else(|| path::Path::new("."));
 
-        let mut temp = NamedTempFile::new_in(dir).map_err(|e| FileError::Io { source: e })?;
+        let mut temp = NamedTempFile::new_in(dir).map_err(|e| AppError::Io { source: e })?;
 
         let data = self.format_file();
         temp.write_all(&data)
-            .map_err(|e| FileError::Io { source: e })?;
+            .map_err(|e| AppError::Io { source: e })?;
 
         temp.as_file()
             .sync_all()
-            .map_err(|e| FileError::Io { source: e })?;
+            .map_err(|e| AppError::Io { source: e })?;
 
-        let _file = temp.persist(path).map_err(|err| FileError::File {
+        let _file = temp.persist(path).map_err(|err| AppError::File {
             path: path.to_path_buf(),
             source: err.error,
         })?;
 
         fs::File::open(dir)
-            .map_err(|err| FileError::Io { source: err })?
+            .map_err(|err| AppError::Io { source: err })?
             .sync_all()
-            .map_err(|err| FileError::Io { source: err })?;
+            .map_err(|err| AppError::Io { source: err })?;
         Ok(())
     }
 
@@ -69,36 +69,36 @@ impl Program {
         buf
     }
 
-    pub fn load(path: &path::Path) -> Result<Self, FileError> {
-        let bytes = fs::read(path).map_err(|err| FileError::Io { source: err })?;
+    pub fn load(path: &path::Path) -> Result<Self, AppError> {
+        let bytes = fs::read(path).map_err(|err| AppError::Io { source: err })?;
         let (magic_bytes, rest) =
             bytes
                 .split_at_checked(MAGIC_BYTES.len())
-                .ok_or(FileError::UnknownFileFormat {
+                .ok_or(AppError::UnknownFileFormat {
                     path: path.to_path_buf(),
                 })?;
         if !matches!(magic_bytes, MAGIC_BYTES) {
-            return Err(FileError::UnknownFileFormat {
+            return Err(AppError::UnknownFileFormat {
                 path: path.to_path_buf(),
             });
         }
         let (format_version, bytecode) =
             rest.split_at_checked(1)
-                .ok_or(FileError::UnknownFileFormat {
+                .ok_or(AppError::UnknownFileFormat {
                     path: path.to_path_buf(),
                 })?;
-        let format_version = format_version.first().ok_or(FileError::UnknownFileFormat {
+        let format_version = format_version.first().ok_or(AppError::UnknownFileFormat {
             path: path.to_path_buf(),
         })?;
         if *format_version != FILE_FORMAT_VERSION {
-            return Err(FileError::UnknownFileFormat {
+            return Err(AppError::UnknownFileFormat {
                 path: path.to_path_buf(),
             });
         }
         Ok(Self::from_bytes(bytecode))
     }
 
-    fn encode(asm: &[AsmInstr]) -> Self {
+    pub fn encode(asm: &[AsmInstr]) -> Self {
         let mut buf = Vec::with_capacity(asm.len() + 50);
         for instr in asm {
             instr.encode(&mut buf);

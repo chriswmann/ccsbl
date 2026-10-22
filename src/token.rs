@@ -20,14 +20,47 @@ impl fmt::Display for Token<'_> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Span<'src> {
-    pub token: Token<'src>,
-    pub line: usize,
+pub struct Spanned<T> {
+    pub token: T,
+    pub span: Span,
 }
 
-impl<'src> Span<'src> {
-    pub fn new(token: Token<'src>, line: usize) -> Self {
-        Self { token, line }
+#[derive(Clone, Debug, PartialEq)]
+pub struct Span {
+    start: usize,
+    end: usize,
+}
+
+impl fmt::Display for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl Span {
+    pub fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TokenKind {
+    Op,
+    Value,
+    Label,
+    Ident,
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use TokenKind::*;
+        let kind = match self {
+            Op => "Op",
+            Value => "Value",
+            Label => "Label",
+            Ident => "Ident",
+        };
+        f.write_str(kind)
     }
 }
 

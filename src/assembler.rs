@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     bytecode::{AsmInstr, Instr, InstructionIndex},
     error::CompileError,
-    token::{Op, Span, Token},
+    token::{Op, Spanned, Token},
 };
 
 #[derive(Debug, Default)]
@@ -14,7 +14,9 @@ pub struct Assembled<'src> {
 
 // Not worrying about stack underflow or overflow yet
 // Jumps are resolved in `resolve` rather than backpatching.
-pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<CompileError<'src>>> {
+pub fn assemble<'src>(
+    spans: &[Spanned<Token<'src>>],
+) -> Result<Assembled<'src>, Vec<CompileError>> {
     if spans.is_empty() {
         return Ok(Assembled::default());
     }
@@ -29,7 +31,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
             }
             return Err(errors);
         }
-        let Span { token, line } = spans[idx].clone();
+        let Spanned { token, line } = spans[idx].clone();
         match token {
             Token::Op(op) => match op {
                 Op::Pop => instrs.push(Instr::Pop { line }),
@@ -43,7 +45,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
                 Op::Dup => instrs.push(Instr::Dup { line }),
                 Op::Jmp => {
                     if (idx + 1) < spans.len() {
-                        let Span {
+                        let Spanned {
                             token: next_token,
                             line: next_line,
                         } = spans[idx + 1].clone();
@@ -68,7 +70,7 @@ pub fn assemble<'src>(spans: &[Span<'src>]) -> Result<Assembled<'src>, Vec<Compi
                 }
                 Op::Jlt => {
                     if (idx + 1) < spans.len() {
-                        let Span {
+                        let Spanned {
                             token: next_token,
                             line: next_line,
                         } = spans[idx + 1].clone();
@@ -158,39 +160,39 @@ mod tests {
     #[test]
     fn returns_expected_output_for_given_input() {
         let spans = vec![
-            Span {
+            Spanned {
                 token: Token::Value(0),
                 line: 2,
             },
-            Span {
+            Spanned {
                 token: Token::Value(-2_000_000_000),
                 line: 2,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Pop),
                 line: 2,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 3,
             },
-            Span {
+            Spanned {
                 token: Token::Ident("target"),
                 line: 3,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Print),
                 line: 3,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Add),
                 line: 4,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Halt),
                 line: 4,
             },
-            Span {
+            Spanned {
                 token: Token::Value(0),
                 line: 5,
             },
@@ -220,11 +222,11 @@ mod tests {
     #[test]
     fn returns_expected_report_for_invalid_jump_operand() {
         let spans = vec![
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 0,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Pop),
                 line: 1,
             },
@@ -245,11 +247,11 @@ mod tests {
     #[test]
     fn returns_expected_report_for_missing_jump_operand() {
         let spans = vec![
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 0,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Halt),
                 line: 1,
             },
@@ -268,7 +270,7 @@ mod tests {
             Ok(_) => panic!("Expected error for missing jump operand"),
         }
 
-        let spans = vec![Span {
+        let spans = vec![Spanned {
             token: Token::Op(Op::Jmp),
             line: 100,
         }];
@@ -290,15 +292,15 @@ mod tests {
     #[test]
     fn jump_back_is_handled_correctly() {
         let spans = vec![
-            Span {
+            Spanned {
                 token: Token::Label("jump_back"),
                 line: 0,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 1,
             },
-            Span {
+            Spanned {
                 token: Token::Ident("jump_back"),
                 line: 2,
             },
@@ -319,15 +321,15 @@ mod tests {
     #[test]
     fn jump_forward_is_handled_correctly() {
         let spans = vec![
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 1,
             },
-            Span {
+            Spanned {
                 token: Token::Ident("jump_forward"),
                 line: 2,
             },
-            Span {
+            Spanned {
                 token: Token::Label("jump_forward"),
                 line: 3,
             },
@@ -348,23 +350,23 @@ mod tests {
     #[test]
     fn jump_twice_is_handled_correctly() {
         let spans = vec![
-            Span {
+            Spanned {
                 token: Token::Label("jump_back"),
                 line: 0,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 1,
             },
-            Span {
+            Spanned {
                 token: Token::Ident("jump_back"),
                 line: 2,
             },
-            Span {
+            Spanned {
                 token: Token::Op(Op::Jmp),
                 line: 3,
             },
-            Span {
+            Spanned {
                 token: Token::Ident("jump_back"),
                 line: 4,
             },

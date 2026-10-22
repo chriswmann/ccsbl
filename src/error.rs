@@ -5,24 +5,24 @@ use std::{
 };
 
 use crate::bytecode::AsmInstr;
-use crate::{bytecode::InstructionIndex, token::Token};
+use crate::bytecode::InstructionIndex;
 
 #[derive(thiserror::Error, Debug)]
-pub enum CompileError<'src> {
-    #[error("Unrecognised token: '{token}' on line {}", line + 1)]
-    Token { token: Token<'src>, line: usize },
+pub enum CompileError {
+    #[error("Unrecognised token")]
+    Token { token: TokenKind, span: Span },
 
-    #[error("Expected jump label on line {}, found {token} instead", line + 1)]
-    NotAJumpLabel { token: Token<'src>, line: usize },
+    #[error("Expected jump label, found {token} instead")]
+    NotAJumpLabel { token: TokenKind, span: Span },
 
-    #[error("Expected jump label on line {}", line + 1)]
-    MissingJumpLabel { line: usize },
+    #[error("Expected jump label")]
+    MissingJumpLabel { span: Span },
 
-    #[error("Could not resolve jump target {target} on line {}", line + 1)]
-    ResolveJumpTarget { target: &'src str, line: usize },
+    #[error("Could not resolve jump target")]
+    ResolveJumpTarget { span: Span },
 
-    #[error("Label {label} on line {} is not unique", line + 1)]
-    NotUniqueLabel { label: &'src str, line: usize },
+    #[error("Label not unique")]
+    NotUniqueLabel { span: Span },
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -147,7 +147,13 @@ pub enum RuntimeError {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum FileError {
+pub enum AppError {
+    #[error("IO error: {source}")]
+    Io {
+        #[source]
+        source: std::io::Error,
+    },
+
     #[error("Could not access file {}: {source}", path.display())]
     File {
         path: std::path::PathBuf,
@@ -158,15 +164,6 @@ pub enum FileError {
     #[error("Unknown file format: {path}")]
     UnknownFileFormat { path: path::PathBuf },
 
-    #[error("IO error: {source}")]
-    Io {
-        #[source]
-        source: std::io::Error,
-    },
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum AppError {
     #[error("Execution failed")]
     ExecutionFailure(i32),
 }
@@ -193,8 +190,7 @@ pub fn report_many<W: Write>(
     }
 }
 
-pub fn display_error(err: impl std::error::Error) -> AppError {
+pub fn display_error(err: impl std::error::Error) -> Result<(), AppError> {
     let mut lock = std::io::stderr().lock();
-    let _ = report(&err, &mut lock);
-    AppError::ExecutionFailure(1)
+    report(&err, &mut lock).map_err(|_| AppError::ExecutionFailure(2))
 }
