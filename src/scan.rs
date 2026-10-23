@@ -16,27 +16,41 @@ impl<'src> Iterator for Scanner<'src> {
     type Item = Spanned<&'src str>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let base = self.offset;
-        let mut chars = self.source[base..].char_indices();
+        loop {
+            let base = self.offset;
+            let mut chars = self.source[base..].char_indices();
 
-        // Skip any leading whitespace
-        let Some((relative_start, _)) = chars.find(|(_, ch)| !ch.is_whitespace()) else {
-            self.offset = self.source.len();
-            return None;
-        };
+            // Skip any leading whitespace
+            let Some((relative_start, candidate)) = chars.find(|(_, ch)| !ch.is_whitespace())
+            else {
+                self.offset = self.source.len();
+                return None;
+            };
 
-        let start = base + relative_start;
+            if candidate == '#' {
+                // Skip to the next line
+                let Some((offset, _)) = chars.find(|&(_, ch)| ch == '\n' || ch == '\r') else {
+                    self.offset = self.source.len();
+                    return None;
+                };
+                // Span.end is exclusive
+                self.offset = base + offset + 1;
+                continue;
+            }
 
-        // Find the next whitespace or the end of the source (ignoring comments for now)
-        let end = chars
-            .find(|(_, ch)| ch.is_whitespace())
-            .map_or(self.source.len(), |(relative_end, _)| base + relative_end);
-        self.offset = end;
+            let start = base + relative_start;
 
-        Some(Spanned {
-            token: &self.source[start..end],
-            span: Span::new(start, end),
-        })
+            // Find the next whitespace, comment marker or end of source
+            let end = chars
+                .find(|&(_, ch)| ch.is_whitespace() || ch == '#')
+                .map_or(self.source.len(), |(relative_end, _)| base + relative_end);
+            self.offset = end;
+
+            return Some(Spanned {
+                token: &self.source[start..end],
+                span: Span::new(start, end),
+            });
+        }
     }
 }
 
