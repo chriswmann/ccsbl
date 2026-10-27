@@ -6,6 +6,7 @@ use std::{
 
 use crate::bytecode::AsmInstr;
 use crate::bytecode::InstructionIndex;
+use crate::token::{Span, TokenKind};
 
 #[derive(thiserror::Error, Debug)]
 pub enum CompileError {

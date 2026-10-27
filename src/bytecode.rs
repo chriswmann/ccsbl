@@ -3,6 +3,7 @@ use std::fmt;
 use strum::FromRepr;
 
 use crate::error::BytecodeError;
+use crate::token::Span;
 
 #[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
 #[repr(u8)]
@@ -36,19 +37,19 @@ pub enum BytecodeOp {
 // Source code instructions
 #[derive(Clone, Debug, PartialEq)]
 pub enum Instr<'src> {
-    Push { value: i64, line: usize },
-    Pop { line: usize },
-    Add { line: usize },
-    Sub { line: usize },
-    Mul { line: usize },
-    Div { line: usize },
-    Neg { line: usize },
-    Mod { line: usize },
-    Dup { line: usize },
-    Jmp { target: &'src str, line: usize },
-    Jlt { target: &'src str, line: usize },
-    Print { line: usize },
-    Halt { line: usize },
+    Push { value: i64, span: Span },
+    Pop { span: Span },
+    Add { span: Span },
+    Sub { span: Span },
+    Mul { span: Span },
+    Div { span: Span },
+    Neg { span: Span },
+    Mod { span: Span },
+    Dup { span: Span },
+    Jmp { target: &'src str, span: Span },
+    Jlt { target: &'src str, span: Span },
+    Print { span: Span },
+    Halt { span: Span },
 }
 
 // Bytecode instructions

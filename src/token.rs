@@ -8,6 +8,34 @@ pub enum Token<'src> {
     Ident(&'src str),
 }
 
+impl<'src> Token<'src> {
+    pub fn new(text: &'src str) -> Self {
+        match text {
+            "add" | "+" => Token::Op(Op::Add),
+            "sub" | "-" => Token::Op(Op::Sub),
+            "mul" | "*" => Token::Op(Op::Mul),
+            "div" | "/" => Token::Op(Op::Div),
+            "neg" | "negate" => Token::Op(Op::Neg),
+            "%" | "mod" => Token::Op(Op::Mod),
+            "dup" => Token::Op(Op::Dup),
+            "pop" => Token::Op(Op::Pop),
+            "print" => Token::Op(Op::Print),
+            "jmp" => Token::Op(Op::Jmp),
+            "jlt" => Token::Op(Op::Jlt),
+            "halt" => Token::Op(Op::Halt),
+            other => {
+                if let Some(label) = other.strip_suffix(':') {
+                    Token::Label(label)
+                } else if let Ok(num) = str::parse::<i64>(other) {
+                    Token::Value(num)
+                } else {
+                    Token::Ident(other)
+                }
+            }
+        }
+    }
+}
+
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -23,6 +51,15 @@ impl fmt::Display for Token<'_> {
 pub struct Spanned<T> {
     pub token: T,
     pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
+        Spanned {
+            token: f(self.token),
+            span: self.span,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -89,4 +126,30 @@ pub enum Op {
     Jlt, // (a b -- ) jump if a < b
     // Jgt,     // (a b -- ) jump if a > b
     Halt, // end program
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_new_gives_expected_result() {
+        let lexemes = vec![
+            ("add", Token::Op(Op::Add)),
+            ("+", Token::Op(Op::Add)),
+            ("sub", Token::Op(Op::Sub)),
+            ("-", Token::Op(Op::Sub)),
+            ("mul", Token::Op(Op::Mul)),
+            ("*", Token::Op(Op::Mul)),
+            ("div", Token::Op(Op::Div)),
+            ("/", Token::Op(Op::Div)),
+            ("mod", Token::Op(Op::Mod)),
+            ("%", Token::Op(Op::Mod)),
+            ("neg", Token::Op(Op::Neg)),
+        ];
+
+        for (lexeme, expected) in lexemes {
+            assert_eq!(Token::new(lexeme), expected);
+        }
+    }
 }
