@@ -69,4 +69,67 @@ pub fn classify<'src>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_scanner_has_expected_source_and_an_offset_of_0() {
+        let scanner = Scanner::new("source");
+        assert_eq!(scanner.source, "source");
+        assert_eq!(scanner.offset, 0);
+    }
+
+    #[test]
+    fn a_new_scanner_has_only_one_spanned_in_it() {
+        let mut scanner = Scanner::new("source");
+        assert_eq!(
+            scanner.next(),
+            Some(Spanned {
+                token: "source",
+                span: Span::new(0, 6)
+            })
+        );
+        assert_eq!(scanner.next(), None);
+    }
+
+    #[test]
+    fn scanner_returns_the_expected_spans() {
+        let source = "1 2 3 mul pop #this is a comment\n# another comment\n4 foo bar";
+        let scanner = Scanner::new(source);
+        let expected = vec![
+            Spanned {
+                token: "1",
+                span: Span::new(0, 1),
+            },
+            Spanned {
+                token: "2",
+                span: Span::new(2, 3),
+            },
+            Spanned {
+                token: "3",
+                span: Span::new(4, 5),
+            },
+            Spanned {
+                token: "mul",
+                span: Span::new(6, 9),
+            },
+            Spanned {
+                token: "pop",
+                span: Span::new(10, 13),
+            },
+            Spanned {
+                token: "4",
+                span: Span::new(51, 52),
+            },
+            Spanned {
+                token: "foo",
+                span: Span::new(53, 56),
+            },
+            Spanned {
+                token: "bar",
+                span: Span::new(57, 60),
+            },
+        ];
+        for (result, expected) in scanner.zip(expected) {
+            assert_eq!(result, expected);
+        }
+    }
 }
