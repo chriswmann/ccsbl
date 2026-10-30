@@ -126,6 +126,12 @@ mod tests {
             ("mod", Token::Op(Op::Mod)),
             ("%", Token::Op(Op::Mod)),
             ("neg", Token::Op(Op::Neg)),
+            ("jmp", Token::Op(Op::Jmp)),
+            ("jlt", Token::Op(Op::Jlt)),
+            ("halt", Token::Op(Op::Halt)),
+            ("1", Token::Value(1)),
+            ("label:", Token::Label("label")),
+            ("target", Token::Ident("target")),
         ];
 
         for (lexeme, expected) in lexemes {
