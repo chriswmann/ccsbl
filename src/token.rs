@@ -1,10 +1,14 @@
 use core::fmt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, strum::Display)]
 pub enum Token<'src> {
+    #[strum(to_string = "Token of type Op: {0}")]
     Op(Op),
+    #[strum(to_string = "Token of type Value: {0}")]
     Value(i64),
+    #[strum(to_string = "Token of type Label: {0}")]
     Label(&'src str),
+    #[strum(to_string = "Token of type Ident: {0}")]
     Ident(&'src str),
 }
 
@@ -32,17 +36,6 @@ impl<'src> Token<'src> {
                     Token::Ident(other)
                 }
             }
-        }
-    }
-}
-
-impl fmt::Display for Token<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Token::Op(op) => write!(f, "Token of type Op: {op:?}"),
-            Token::Value(value) => write!(f, "Token of type Value with value {value}"),
-            Token::Label(label) => write!(f, "Token of type Label with label {label}"),
-            Token::Ident(s) => write!(f, "Token of type Ident with value {s}"),
         }
     }
 }
@@ -80,7 +73,7 @@ impl Span {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, strum::Display)]
 pub enum TokenKind {
     Op,
     Value,
@@ -88,20 +81,7 @@ pub enum TokenKind {
     Ident,
 }
 
-impl fmt::Display for TokenKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use TokenKind::*;
-        let kind = match self {
-            Op => "Op",
-            Value => "Value",
-            Label => "Label",
-            Ident => "Ident",
-        };
-        f.write_str(kind)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, strum::Display)]
 pub enum Op {
     // Push,  // ( -- a)
     Pop,   // (a -- )
