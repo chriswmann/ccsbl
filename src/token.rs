@@ -131,9 +131,34 @@ mod tests {
             ("halt", Token::Op(Op::Halt)),
             ("1", Token::Value(1)),
             ("label:", Token::Label("label")),
-            ("target", Token::Ident("target")),
+            ("ident", Token::Ident("ident")),
         ];
 
+        for (lexeme, expected) in lexemes {
+            assert_eq!(Token::new(lexeme), expected);
+        }
+    }
+
+    #[test]
+    fn token_value_works_as_expected() {
+        let i64_min = i64::MIN.to_string();
+        let i64_max = i64::MAX.to_string();
+        let lexemes = vec![
+            ("0", Token::Value(0)),
+            ("1", Token::Value(1)),
+            ("-1", Token::Value(-1)),
+            (i64_min.as_str(), Token::Value(i64::MIN)),
+            (i64_max.as_str(), Token::Value(i64::MAX)),
+        ];
+
+        for (lexeme, expected) in lexemes {
+            assert_eq!(Token::new(lexeme), expected);
+        }
+    }
+
+    #[test]
+    fn token_classification_precedence_creates_labels_as_expected() {
+        let lexemes = vec![("add:", Token::Label("add")), ("12:", Token::Label("12"))];
         for (lexeme, expected) in lexemes {
             assert_eq!(Token::new(lexeme), expected);
         }
