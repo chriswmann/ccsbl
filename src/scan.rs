@@ -1,4 +1,4 @@
-use crate::token::{Op, Span, Spanned, Token};
+use crate::token::{Span, Spanned, Token};
 
 #[derive(Debug)]
 struct Scanner<'src> {
@@ -68,7 +68,11 @@ pub fn classify<'src>(
 
 #[cfg(test)]
 mod tests {
+    use std::iter::Scan;
+
     use super::*;
+
+    use crate::token::Op;
 
     #[test]
     fn a_new_scanner_has_expected_source_and_an_offset_of_0() {
@@ -179,6 +183,14 @@ mod tests {
     }
 
     #[test]
+    fn scanner_stays_exhausted_when_source_is_finished() {
+        let mut scanner = Scanner::new("");
+        for _ in 0..10 {
+            assert_eq!(scanner.next(), None);
+        }
+    }
+
+    #[test]
     fn scanner_returns_the_expected_spans() {
         let source = "1 2 3 mul pop #this is a comment\n# another comment\n4 foo bar";
         let scanner = Scanner::new(source);
@@ -219,5 +231,50 @@ mod tests {
         for (result, expected) in scanner.zip(expected) {
             assert_eq!(result, expected);
         }
+    }
+
+    #[test]
+    fn classify_preserves_original_spans() {
+        let result: Vec<Spanned<_>> = classify(scan("é: -2 jmp é")).collect();
+        let expected = vec![
+            Spanned {
+                token: Token::Label("é"),
+                span: Span::new(0, 3),
+            },
+            Spanned {
+                token: Token::Value(-2),
+                span: Span::new(4, 6),
+            },
+            Spanned {
+                token: Token::Op(Op::Jmp),
+                span: Span::new(7, 10),
+            },
+            Spanned {
+                token: Token::Ident("é"),
+                span: Span::new(11, 13),
+            },
+        ];
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn classify_only_consumes_lexemes_when_requested() {
+        use std::cell::Cell;
+
+        let consumed = Cell::new(0);
+        let lexemes = scan("1 2 3").inspect(|_| consumed.set(consumed.get() + 1));
+        let mut tokens = classify(lexemes);
+
+        assert_eq!(consumed.get(), 0);
+        assert_eq!(tokens.next().map(|s| s.token), Some(Token::Value(1)));
+
+        assert_eq!(consumed.get(), 1);
+        assert_eq!(tokens.next().map(|s| s.token), Some(Token::Value(2)));
+
+        assert_eq!(consumed.get(), 2);
+        assert_eq!(tokens.next().map(|s| s.token), Some(Token::Value(3)));
+
+        assert_eq!(consumed.get(), 3);
     }
 }
