@@ -91,6 +91,94 @@ mod tests {
     }
 
     #[test]
+    fn scanner_handles_multibyte_unicode_correctly() {
+        let scanner = Scanner::new("é\u{2003}猫 🦀");
+        let result: Vec<Spanned<_>> = scanner.collect();
+        let expected = vec![
+            Spanned {
+                token: "é",
+                span: Span::new(0, 2),
+            },
+            Spanned {
+                token: "猫",
+                span: Span::new(5, 8),
+            },
+            Spanned {
+                token: "🦀",
+                span: Span::new(9, 13),
+            },
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn scanner_ignores_comments_correctly() {
+        let scanner = Scanner::new("1#comment\n2 #comment\n3# comment\n4 # comment");
+        let result: Vec<Spanned<_>> = scanner.collect();
+        let expected = vec![
+            Spanned {
+                token: "1",
+                span: Span::new(0, 1),
+            },
+            Spanned {
+                token: "2",
+                span: Span::new(10, 11),
+            },
+            Spanned {
+                token: "3",
+                span: Span::new(21, 22),
+            },
+            Spanned {
+                token: "4",
+                span: Span::new(32, 33),
+            },
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn scanner_handles_line_endings_correctly() {
+        let scanner = Scanner::new("\n1\r2\r\n3");
+        let result: Vec<Spanned<_>> = scanner.collect();
+        let expected = vec![
+            Spanned {
+                token: "1",
+                span: Span::new(1, 2),
+            },
+            Spanned {
+                token: "2",
+                span: Span::new(3, 4),
+            },
+            Spanned {
+                token: "3",
+                span: Span::new(6, 7),
+            },
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn source_that_is_empty_gives_empty_output() {
+        let scanner = Scanner::new("");
+        let result: Vec<Spanned<_>> = scanner.collect();
+        assert_eq!(result, Vec::<Spanned<_>>::new());
+    }
+
+    #[test]
+    fn source_that_is_only_whitespace_gives_empty_output() {
+        let scanner = Scanner::new(" \n \r \t");
+        let result: Vec<Spanned<_>> = scanner.collect();
+        assert_eq!(result, Vec::<Spanned<_>>::new());
+    }
+
+    #[test]
+    fn source_that_is_only_comments_gives_empty_output() {
+        let scanner = Scanner::new("#commment");
+        let result: Vec<Spanned<_>> = scanner.collect();
+        assert_eq!(result, Vec::<Spanned<_>>::new());
+    }
+
+    #[test]
     fn scanner_returns_the_expected_spans() {
         let source = "1 2 3 mul pop #this is a comment\n# another comment\n4 foo bar";
         let scanner = Scanner::new(source);
