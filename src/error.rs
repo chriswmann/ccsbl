@@ -9,7 +9,7 @@ use crate::bytecode::InstructionIndex;
 use crate::token::{Span, TokenKind};
 
 #[derive(thiserror::Error, Debug)]
-pub enum CompileError {
+pub enum Error {
     #[error("Unrecognised token")]
     Token { token: TokenKind, span: Span },
 
@@ -24,10 +24,7 @@ pub enum CompileError {
 
     #[error("Label not unique")]
     NotUniqueLabel { span: Span },
-}
 
-#[derive(thiserror::Error, Debug)]
-pub enum BytecodeError {
     #[error("Truncated byte code at offset {offset}")]
     TruncatedByteCode { offset: usize },
 
@@ -41,6 +38,50 @@ pub enum BytecodeError {
 
     #[error("One or more jump targets are for beyond the program length: {0}")]
     JumpTargetOutOfProgram(BadJumpTargets),
+
+    #[error("Stack underflow error during operation {instr} at instruction index {ind}")]
+    StackUnderFlow {
+        instr: AsmInstr,
+        ind: InstructionIndex,
+    },
+
+    #[error("Stack overflow error during operation {instr} at instruction index {ind}")]
+    StackOverflow {
+        instr: AsmInstr,
+        ind: InstructionIndex,
+    },
+
+    #[error("Divide by zero error during operation {instr} at instruction index {ind}")]
+    DivideByZero {
+        instr: AsmInstr,
+        ind: InstructionIndex,
+    },
+
+    #[error("IO error: {source}")]
+    Io {
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Could not access file {}: {source}", path.display())]
+    File {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Unknown file format: {path}")]
+    UnknownFileFormat { path: path::PathBuf },
+
+    #[error("Execution failed")]
+    ExecutionFailure(i32),
+
+    #[error("Error printing {message} to console ({source})")]
+    Report {
+        message: String,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -114,59 +155,6 @@ impl fmt::Display for BadJumpTarget {
             self.jump_type, self.target, self.idx
         )
     }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum RuntimeError {
-    #[error("Stack underflow error during operation {instr} at instruction index {ind}")]
-    StackUnderFlow {
-        instr: AsmInstr,
-        ind: InstructionIndex,
-    },
-
-    #[error("Stack overflow error during operation {instr} at instruction index {ind}")]
-    StackOverflow {
-        instr: AsmInstr,
-        ind: InstructionIndex,
-    },
-
-    #[error("Divide by zero error during operation {instr} at instruction index {ind}")]
-    DivideByZero {
-        instr: AsmInstr,
-        ind: InstructionIndex,
-    },
-
-    #[error("One or more jump targets are for beyond the program length: {0}")]
-    JumpTargetOutOfProgram(BadJumpTargets),
-
-    #[error("Error printing {message} to console ({source})")]
-    Report {
-        message: String,
-        #[source]
-        source: std::io::Error,
-    },
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum AppError {
-    #[error("IO error: {source}")]
-    Io {
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Could not access file {}: {source}", path.display())]
-    File {
-        path: std::path::PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
-    #[error("Unknown file format: {path}")]
-    UnknownFileFormat { path: path::PathBuf },
-
-    #[error("Execution failed")]
-    ExecutionFailure(i32),
 }
 
 pub fn report<W: Write>(err: impl std::error::Error, w: &mut W) -> io::Result<()> {

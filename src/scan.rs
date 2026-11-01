@@ -61,9 +61,9 @@ pub fn scan(source: &str) -> impl Iterator<Item = Spanned<&str>> {
 // Classify each Lexeme into a Token, keeping the span for
 // error messages.
 pub fn classify<'src>(
-    lex_iter: impl Iterator<Item = Spanned<&'src str>>,
+    lex_iter: impl IntoIterator<Item = Spanned<&'src str>>,
 ) -> impl Iterator<Item = Spanned<Token<'src>>> {
-    lex_iter.map(|s| s.map(Token::new))
+    lex_iter.into_iter().map(|s| s.map(Token::new))
 }
 
 #[cfg(test)]

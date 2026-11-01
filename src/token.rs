@@ -81,6 +81,17 @@ pub enum TokenKind {
     Ident,
 }
 
+impl<'src> From<&Token<'src>> for TokenKind {
+    fn from(value: &Token<'src>) -> Self {
+        match value {
+            Token::Op(_) => Self::Op,
+            Token::Value(_) => Self::Value,
+            Token::Label(_) => Self::Label,
+            Token::Ident(_) => Self::Ident,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, strum::Display)]
 pub enum Op {
     // Push,  // ( -- a)

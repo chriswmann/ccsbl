@@ -2,109 +2,84 @@ use std::collections::HashMap;
 
 use crate::{
     bytecode::{AsmInstr, Instr, InstructionIndex},
-    error::CompileError,
-    token::{Op, Spanned, Token},
+    error::Error,
+    token::{Op, Spanned, Token, TokenKind},
 };
 
 #[derive(Debug, Default)]
 pub struct Assembled<'src> {
     pub instrs: Vec<Instr<'src>>,
-    pub labels: HashMap<&'src str, InstructionIndex>,
+    pub symbols: HashMap<&'src str, InstructionIndex>,
 }
 
 pub fn assemble<'src>(
-    spans: &[Spanned<Token<'src>>],
-) -> Result<Assembled<'src>, Vec<CompileError>> {
-    if spans.is_empty() {
-        return Ok(Assembled::default());
-    }
-    let mut instrs = Vec::with_capacity(spans.len());
-    let mut labels = HashMap::new();
+    spans: impl IntoIterator<Item = Spanned<Token<'src>>>,
+) -> Result<Assembled<'src>, Vec<Error>> {
+    let mut spans = spans.into_iter().peekable();
+    let mut instrs = Vec::with_capacity(spans.size_hint().0);
+    let mut symbols = HashMap::new();
     let mut errors = Vec::new();
-    let mut idx = 0;
-    loop {
-        if idx == spans.len() {
-            if errors.is_empty() {
-                return Ok(Assembled { instrs, labels });
+    while let Some(Spanned { token, span }) = spans.next() {
+        match token {
+            Token::Op(op) => match op {
+                Op::Pop => instrs.push(Instr::Pop { span }),
+                Op::Print => instrs.push(Instr::Print { span }),
+                Op::Add => instrs.push(Instr::Add { span }),
+                Op::Sub => instrs.push(Instr::Sub { span }),
+                Op::Mul => instrs.push(Instr::Mul { span }),
+                Op::Div => instrs.push(Instr::Div { span }),
+                Op::Neg => instrs.push(Instr::Neg { span }),
+                Op::Mod => instrs.push(Instr::Mod { span }),
+                Op::Dup => instrs.push(Instr::Dup { span }),
+                Op::Jmp | Op::Jlt => {
+                    if let Some(Spanned {
+                        token: next_token,
+                        span: next_span,
+                    }) = spans.peek()
+                    {
+                        match next_token {
+                            Token::Ident(ident) => {
+                                instrs.push(Instr::Jmp {
+                                    target: ident,
+                                    span,
+                                });
+                                spans.next();
+                            }
+                            Token::Op(_) | Token::Label(_) | Token::Value(_) => {
+                                errors.push(Error::MissingJumpLabel {
+                                    span: next_span.clone(),
+                                })
+                            }
+                        }
+                    } else {
+                        errors.push(Error::MissingJumpLabel { span });
+                    }
+                }
+                Op::Halt => instrs.push(Instr::Halt { span }),
+            },
+            Token::Ident(_) => {
+                // Idents aren't implemented yet, so if we encounter one that isn't directly after a
+                // jump, it is an error
+                errors.push(Error::Token {
+                    token: TokenKind::from(&token),
+                    span,
+                });
             }
-            return Err(errors);
-        }
-        // let Spanned { token, span } = spans[idx].clone();
-        // match token {
-        //     Token::Op(op) => match op {
-        //         Op::Pop => instrs.push(Instr::Pop { span }),
-        //         Op::Print => instrs.push(Instr::Print { span }),
-        //         Op::Add => instrs.push(Instr::Add { span }),
-        //         Op::Sub => instrs.push(Instr::Sub { span }),
-        //         Op::Mul => instrs.push(Instr::Mul { span }),
-        //         Op::Div => instrs.push(Instr::Div { span }),
-        //         Op::Neg => instrs.push(Instr::Neg { span }),
-        //         Op::Mod => instrs.push(Instr::Mod { span }),
-        //         Op::Dup => instrs.push(Instr::Dup { span }),
-        //         Op::Jmp => {
-        //             if (idx + 1) < spans.len() {
-        //                 let Spanned {
-        //                     token: next_token,
-        //                     line: next_line,
-        //                 } = spans[idx + 1].clone();
-        //                 match next_token {
-        //                     Token::Ident(ident) => {
-        //                         instrs.push(Instr::Jmp {
-        //                             target: ident,
-        //                             line,
-        //                         });
-        //                         idx += 1;
-        //                     }
-        //                     Token::Op(_) | Token::Value(_) | Token::Label(_) => {
-        //                         errors.push(CompileError::NotAJumpLabel {
-        //                             token: next_token,
-        //                             line: next_line,
-        //                         });
-        //                     }
-        //                 }
-        //             } else {
-        //                 errors.push(CompileError::MissingJumpLabel { line });
-        //             }
-        //         }
-        //         Op::Jlt => {
-        //             if (idx + 1) < spans.len() {
-        //                 let Spanned {
-        //                     token: next_token,
-        //                     line: next_line,
-        //                 } = spans[idx + 1].clone();
-        //                 match next_token {
-        //                     Token::Ident(ident) => {
-        //                         instrs.push(Instr::Jlt {
-        //                             target: ident,
-        //                             line,
-        //                         });
-        //                         idx += 1;
-        //                     }
-        //                     Token::Op(_) | Token::Value(_) | Token::Label(_) => {
-        //                         errors.push(CompileError::NotAJumpLabel {
-        //                             token: next_token,
-        //                             line: next_line,
-        //                         });
-        //                     }
-        //                 }
-        //             } else {
-        //                 errors.push(CompileError::MissingJumpLabel { line });
-        //             }
-        //         }
-        //         Op::Halt => {
-        //             instrs.push(Instr::Halt { line });
-        //         }
-        //     },
-        //     Token::Value(value) => instrs.push(Instr::Push { value, line }),
-        //     Token::Label(label) => {
-        //         if labels.insert(label, instrs.len().into()).is_some() {
-        //             errors.push(CompileError::NotUniqueLabel { label, line });
-        //         }
-        //     }
-        //     // Idents aren't implemented yet
-        //     token @ Token::Ident(_ident) => errors.push(CompileError::Token { token, line }),
-        // }
-        // idx += 1;
+            Token::Value(value) => instrs.push(Instr::Push { value, span }),
+            Token::Label(label) => {
+                if symbols
+                    .insert(label, InstructionIndex::from(instrs.len()))
+                    .is_some()
+                {
+                    errors.push(Error::NotUniqueLabel { span });
+                }
+            }
+        };
+    }
+    if !errors.is_empty() {
+        Err(errors)
+    } else {
+        Ok(Assembled { instrs, symbols })
     }
 }
 
