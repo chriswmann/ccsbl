@@ -5,7 +5,7 @@ use clap::Parser;
 
 use tracing_subscriber::EnvFilter;
 
-use ccsbl::{display_error, execute, report, AppError, Cli, Operation};
+use ccsbl::{Cli, Error, Operation, display_error, execute, report};
 
 fn main() {
     tracing_subscriber::fmt()
@@ -23,7 +23,7 @@ fn main() {
     //         let asm = match compile_file(&input_file) {
     //             Ok(asm) => asm,
     //             Err(app_err) => {
-    //                 let AppError::ExecutionFailure(code) = display_error(app_err);
+    //                 let Error::ExecutionFailure(code) = display_error(app_err);
     //                 exit(code);
     //             }
     //         };

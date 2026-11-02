@@ -6,7 +6,7 @@ use tracing::debug;
 use crate::bytecode::InstructionIndex;
 use crate::error::{BadJumpTarget, BadJumpTargets, JumpType};
 use crate::ui::print;
-use crate::{bytecode::AsmInstr, error::RuntimeError};
+use crate::{bytecode::AsmInstr, error::Error};
 
 #[derive(Default)]
 struct Stack(Vec<i64>);
@@ -20,10 +20,10 @@ impl Stack {
         self.0.push(value);
     }
 
-    fn pop(&mut self, instr: AsmInstr, ind: InstructionIndex) -> Result<i64, RuntimeError> {
+    fn pop(&mut self, instr: AsmInstr, ind: InstructionIndex) -> Result<i64, Error> {
         match self.0.pop() {
             Some(value) => Ok(value),
-            None => Err(RuntimeError::StackUnderFlow { instr, ind }),
+            None => Err(Error::StackUnderFlow { instr, ind }),
         }
     }
 }
@@ -37,7 +37,7 @@ impl fmt::Display for Stack {
     }
 }
 
-pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError> {
+pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), Error> {
     let mut stack = Stack::new();
     let mut idx = 0;
     check_jump_targets(asm)?;
@@ -50,7 +50,7 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
             &instr @ AsmInstr::Add => {
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
-                let c = a.checked_add(b).ok_or(RuntimeError::StackOverflow {
+                let c = a.checked_add(b).ok_or(Error::StackOverflow {
                     instr,
                     ind: idx.into(),
                 })?;
@@ -59,7 +59,7 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
             &instr @ AsmInstr::Sub => {
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
-                let c = b.checked_sub(a).ok_or(RuntimeError::StackOverflow {
+                let c = b.checked_sub(a).ok_or(Error::StackOverflow {
                     instr,
                     ind: idx.into(),
                 })?;
@@ -68,7 +68,7 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
             &instr @ AsmInstr::Mul => {
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
-                let p = a.checked_mul(b).ok_or(RuntimeError::StackOverflow {
+                let p = a.checked_mul(b).ok_or(Error::StackOverflow {
                     instr,
                     ind: idx.into(),
                 })?;
@@ -78,12 +78,12 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
                 if a == 0 {
-                    return Err(RuntimeError::DivideByZero {
+                    return Err(Error::DivideByZero {
                         instr,
                         ind: idx.into(),
                     });
                 }
-                let d = b.checked_div(a).ok_or(RuntimeError::StackOverflow {
+                let d = b.checked_div(a).ok_or(Error::StackOverflow {
                     instr,
                     ind: idx.into(),
                 })?;
@@ -91,7 +91,7 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
             }
             &instr @ AsmInstr::Neg => {
                 let a = stack.pop(instr, idx.into())?;
-                let n = a.checked_neg().ok_or(RuntimeError::StackOverflow {
+                let n = a.checked_neg().ok_or(Error::StackOverflow {
                     instr,
                     ind: idx.into(),
                 })?;
@@ -101,12 +101,12 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
                 let a = stack.pop(instr, idx.into())?;
                 let b = stack.pop(instr, idx.into())?;
                 if a == 0 {
-                    return Err(RuntimeError::DivideByZero {
+                    return Err(Error::DivideByZero {
                         instr,
                         ind: idx.into(),
                     });
                 }
-                let n = b.checked_rem(a).ok_or(RuntimeError::StackOverflow {
+                let n = b.checked_rem(a).ok_or(Error::StackOverflow {
                     instr,
                     ind: idx.into(),
                 })?;
@@ -148,7 +148,7 @@ pub fn execute<W: Write>(asm: &[AsmInstr], w: &mut W) -> Result<(), RuntimeError
     }
 }
 
-fn check_jump_targets(asm: &[AsmInstr]) -> Result<(), RuntimeError> {
+fn check_jump_targets(asm: &[AsmInstr]) -> Result<(), Error> {
     let mut bad_targets = BadJumpTargets::new();
     for (idx, instr) in asm.iter().enumerate() {
         if let AsmInstr::Jmp(target) = instr {
@@ -173,7 +173,7 @@ fn check_jump_targets(asm: &[AsmInstr]) -> Result<(), RuntimeError> {
     if bad_targets.is_empty() {
         Ok(())
     } else {
-        Err(RuntimeError::JumpTargetOutOfProgram(bad_targets))
+        Err(Error::JumpTargetOutOfProgram(bad_targets))
     }
 }
 
@@ -186,7 +186,7 @@ mod tests {
         let asm = vec![AsmInstr::Pop];
         let result = execute(&asm, &mut Vec::new());
         assert!(
-            matches!(&result, Err(RuntimeError::StackUnderFlow { instr, ind })
+            matches!(&result, Err(Error::StackUnderFlow { instr, ind })
             if *instr == AsmInstr::Pop && *ind == InstructionIndex::from(0)
             ),
             "expected StackUnderFlow but got {result:?}",
@@ -194,7 +194,7 @@ mod tests {
         let asm = vec![AsmInstr::Push(0), AsmInstr::Pop, AsmInstr::Pop];
         let result = execute(&asm, &mut Vec::new());
         assert!(
-            matches!(&result, Err(RuntimeError::StackUnderFlow { instr, ind })
+            matches!(&result, Err(Error::StackUnderFlow { instr, ind })
             if *instr == AsmInstr::Pop && *ind == InstructionIndex::from(2)
             ),
             "expected StackUnderFlow but got {result:?}",
@@ -224,7 +224,7 @@ mod tests {
         assert!(
             matches!(
                 &result,
-                Err(RuntimeError::JumpTargetOutOfProgram(BadJumpTargets {
+                Err(Error::JumpTargetOutOfProgram(BadJumpTargets {
                     targets
                 }))
                     if *targets == expected
@@ -278,16 +278,14 @@ mod tests {
         let mut buf = Vec::new();
         match execute(&asm, &mut buf) {
             Ok(()) => {
-                panic!(
-                    "expected divide by zero to return RuntimeError::DivideByZero but got Ok(())"
-                )
+                panic!("expected divide by zero to return Error::DivideByZero but got Ok(())")
             }
-            Err(RuntimeError::DivideByZero { instr, ind }) => {
+            Err(Error::DivideByZero { instr, ind }) => {
                 assert_eq!(instr, AsmInstr::Div);
                 assert_eq!(ind, InstructionIndex::from(2));
             }
             Err(err) => {
-                panic!("expected divide by zero to return RuntimeError::DivideByZero but got {err}")
+                panic!("expected divide by zero to return Error::DivideByZero but got {err}")
             }
         }
     }
@@ -298,14 +296,14 @@ mod tests {
         let mut buf = Vec::new();
         match execute(&asm, &mut buf) {
             Ok(()) => {
-                panic!("expected mod by zero to return RuntimeError::DivideByZero but got Ok(())")
+                panic!("expected mod by zero to return Error::DivideByZero but got Ok(())")
             }
-            Err(RuntimeError::DivideByZero { instr, ind }) => {
+            Err(Error::DivideByZero { instr, ind }) => {
                 assert_eq!(instr, AsmInstr::Mod);
                 assert_eq!(ind, InstructionIndex::from(2));
             }
             Err(err) => {
-                panic!("expected mod by zero to return RuntimeError::DivideByZero but got {err}")
+                panic!("expected mod by zero to return Error::DivideByZero but got {err}")
             }
         }
     }

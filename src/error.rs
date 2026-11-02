@@ -179,7 +179,7 @@ pub fn report_many<W: Write>(
     }
 }
 
-pub fn display_error(err: impl std::error::Error) -> Result<(), AppError> {
+pub fn display_error(err: impl std::error::Error) -> Result<(), Error> {
     let mut lock = std::io::stderr().lock();
-    report(&err, &mut lock).map_err(|_| AppError::ExecutionFailure(2))
+    report(&err, &mut lock).map_err(|_| Error::ExecutionFailure(2))
 }

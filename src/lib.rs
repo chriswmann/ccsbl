@@ -5,7 +5,7 @@ use tracing::instrument;
 // use crate::assembler::{assemble, resolve};
 pub use crate::bytecode::AsmInstr;
 pub use crate::cli::{Cli, Operation};
-pub use crate::error::{display_error, report, AppError, CompileError};
+pub use crate::error::{Error, display_error, report};
 pub use crate::file::load_source;
 pub use crate::program::Program;
 use crate::scan::{classify, scan};
@@ -23,7 +23,7 @@ mod ui;
 mod vm;
 
 #[instrument]
-pub fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<CompileError>> {
+pub fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<Error>> {
     let lexemes = scan(source);
     // let spans = classify(&lexemes);
     // let assembled = assemble(&spans)?;
@@ -33,7 +33,7 @@ pub fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<CompileError>> {
 }
 
 // #[instrument]
-// pub fn load(file_path: &path::Path) -> Result<Vec<AsmInstr>, AppError> {
+// pub fn load(file_path: &path::Path) -> Result<Vec<AsmInstr>, Error> {
 //     let progam = match Program::load(file_path) {
 //         Ok(program) => program,
 //         Err(file_err) => {
@@ -50,10 +50,10 @@ pub fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<CompileError>> {
 // }
 //
 // #[instrument]
-// pub fn compile_file(input_file: &path::Path) -> Result<Vec<AsmInstr>, AppError> {
+// pub fn compile_file(input_file: &path::Path) -> Result<Vec<AsmInstr>, Error> {
 //     let asm = match load(&input_file) {
 //         Ok(asm) => asm,
-//         Err(AppError::ExecutionFailure(code)) => {
+//         Err(Error::ExecutionFailure(code)) => {
 //             let source = load_source(&input_file)?;
 //             match compile(&source) {
 //                 Ok(asm) => asm,
@@ -61,7 +61,7 @@ pub fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<CompileError>> {
 //                     for err in errs {
 //                         display_error(err);
 //                     }
-//                     Err(AppError::ExecutionFailure(code))?
+//                     Err(Error::ExecutionFailure(code))?
 //                 }
 //             }
 //         }
@@ -74,7 +74,7 @@ pub fn compile(source: &str) -> Result<Vec<AsmInstr>, Vec<CompileError>> {
 //     input_file: &path::Path,
 //     output_file: &mut path::Path,
 //     force: bool,
-// ) -> Result<(), AppError> {
+// ) -> Result<(), Error> {
 //     let asm = compile_file(input_file)?;
 //     let program = Program::encode(&asm);
 //     program.save(output_file)?;

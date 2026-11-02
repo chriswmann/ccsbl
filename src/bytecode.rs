@@ -2,7 +2,7 @@ use std::fmt;
 
 use strum::FromRepr;
 
-use crate::error::BytecodeError;
+use crate::error::Error;
 use crate::token::Span;
 
 #[derive(Clone, Copy, Debug, FromRepr, PartialEq)]
@@ -131,39 +131,38 @@ impl AsmInstr {
 
     // Decode a bytecode instruction at the given offset, returning the `Instr`
     // and the number of bytes it consumed.
-    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), BytecodeError> {
+    pub fn decode(code: &[u8], offset: usize) -> Result<(Self, usize), Error> {
         let bytes = code
             .get(offset..)
-            .ok_or(BytecodeError::TruncatedByteCode { offset })?;
+            .ok_or(Error::TruncatedByteCode { offset })?;
         let (&opcode, rest) = bytes
             .split_first()
-            .ok_or(BytecodeError::TruncatedByteCode { offset })?;
-        let op =
-            BytecodeOp::from_repr(opcode).ok_or(BytecodeError::UnknownOpcode { opcode, offset })?;
+            .ok_or(Error::TruncatedByteCode { offset })?;
+        let op = BytecodeOp::from_repr(opcode).ok_or(Error::UnknownOpcode { opcode, offset })?;
         let (instr, consumed) = match op {
             BytecodeOp::Push => {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
-                    .ok_or(BytecodeError::TruncatedByteCode { offset })?;
+                    .ok_or(Error::TruncatedByteCode { offset })?;
                 let value = i64::from_le_bytes(*operand);
                 (Self::Push(value), Self::Push(value).size())
             }
             BytecodeOp::Jmp => {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
-                    .ok_or(BytecodeError::TruncatedByteCode { offset })?;
+                    .ok_or(Error::TruncatedByteCode { offset })?;
                 let target = u64::from_le_bytes(*operand);
                 let idx = usize::try_from(target)
-                    .map_err(|_| BytecodeError::JumpTargetOutOfRange { target, offset })?;
+                    .map_err(|_| Error::JumpTargetOutOfRange { target, offset })?;
                 (Self::Jmp(idx.into()), Self::Jmp(idx.into()).size())
             }
             BytecodeOp::Jlt => {
                 let (operand, _) = rest
                     .split_first_chunk::<8>()
-                    .ok_or(BytecodeError::TruncatedByteCode { offset })?;
+                    .ok_or(Error::TruncatedByteCode { offset })?;
                 let target = u64::from_le_bytes(*operand);
                 let idx = usize::try_from(target)
-                    .map_err(|_| BytecodeError::JumpTargetOutOfRange { target, offset })?;
+                    .map_err(|_| Error::JumpTargetOutOfRange { target, offset })?;
                 (Self::Jlt(idx.into()), Self::Jlt(idx.into()).size())
             }
             BytecodeOp::Pop => (Self::Pop, Self::Pop.size()),
@@ -358,7 +357,7 @@ mod tests {
         let code = &[0x01, 1, 0];
         let offset = 0;
         match AsmInstr::decode(code, offset) {
-            Err(BytecodeError::TruncatedByteCode {
+            Err(Error::TruncatedByteCode {
                 offset: offset_result,
             }) => {
                 assert_eq!(offset_result, offset);
@@ -373,7 +372,7 @@ mod tests {
         let code = &[0x01, 0x02, 0x79];
         let offset = 2;
         match AsmInstr::decode(code, offset) {
-            Err(BytecodeError::UnknownOpcode { opcode, offset }) => {
+            Err(Error::UnknownOpcode { opcode, offset }) => {
                 assert_eq!(opcode, 0x79);
                 assert_eq!(offset, 2);
             }

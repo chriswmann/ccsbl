@@ -4,11 +4,7 @@ use tempfile::NamedTempFile;
 
 use crate::{
     bytecode::{AsmInstr, InstructionIndex},
-    error::{
-        AppError, BadJumpTarget, BadJumpTargets,
-        BytecodeError::{self},
-        JumpType,
-    },
+    error::{BadJumpTarget, BadJumpTargets, Error, JumpType},
 };
 
 const MAGIC_BYTES: &[u8] = b"CCSBL";
@@ -34,31 +30,30 @@ impl Program {
     }
 
     // Atomic save and sync the program to disk
-    pub fn save(&self, path: &path::Path) -> Result<(), AppError> {
+    pub fn save(&self, path: &path::Path) -> Result<(), Error> {
         let dir = path
             .parent()
             .filter(|&p| !p.as_os_str().is_empty())
             .unwrap_or_else(|| path::Path::new("."));
 
-        let mut temp = NamedTempFile::new_in(dir).map_err(|e| AppError::Io { source: e })?;
+        let mut temp = NamedTempFile::new_in(dir).map_err(|e| Error::Io { source: e })?;
 
         let data = self.format_file();
-        temp.write_all(&data)
-            .map_err(|e| AppError::Io { source: e })?;
+        temp.write_all(&data).map_err(|e| Error::Io { source: e })?;
 
         temp.as_file()
             .sync_all()
-            .map_err(|e| AppError::Io { source: e })?;
+            .map_err(|e| Error::Io { source: e })?;
 
-        let _file = temp.persist(path).map_err(|err| AppError::File {
+        let _file = temp.persist(path).map_err(|err| Error::File {
             path: path.to_path_buf(),
             source: err.error,
         })?;
 
         fs::File::open(dir)
-            .map_err(|err| AppError::Io { source: err })?
+            .map_err(|err| Error::Io { source: err })?
             .sync_all()
-            .map_err(|err| AppError::Io { source: err })?;
+            .map_err(|err| Error::Io { source: err })?;
         Ok(())
     }
 
@@ -69,29 +64,28 @@ impl Program {
         buf
     }
 
-    pub fn load(path: &path::Path) -> Result<Self, AppError> {
-        let bytes = fs::read(path).map_err(|err| AppError::Io { source: err })?;
+    pub fn load(path: &path::Path) -> Result<Self, Error> {
+        let bytes = fs::read(path).map_err(|err| Error::Io { source: err })?;
         let (magic_bytes, rest) =
             bytes
                 .split_at_checked(MAGIC_BYTES.len())
-                .ok_or(AppError::UnknownFileFormat {
+                .ok_or(Error::UnknownFileFormat {
                     path: path.to_path_buf(),
                 })?;
         if !matches!(magic_bytes, MAGIC_BYTES) {
-            return Err(AppError::UnknownFileFormat {
+            return Err(Error::UnknownFileFormat {
                 path: path.to_path_buf(),
             });
         }
         let (format_version, bytecode) =
-            rest.split_at_checked(1)
-                .ok_or(AppError::UnknownFileFormat {
-                    path: path.to_path_buf(),
-                })?;
-        let format_version = format_version.first().ok_or(AppError::UnknownFileFormat {
+            rest.split_at_checked(1).ok_or(Error::UnknownFileFormat {
+                path: path.to_path_buf(),
+            })?;
+        let format_version = format_version.first().ok_or(Error::UnknownFileFormat {
             path: path.to_path_buf(),
         })?;
         if *format_version != FILE_FORMAT_VERSION {
-            return Err(AppError::UnknownFileFormat {
+            return Err(Error::UnknownFileFormat {
                 path: path.to_path_buf(),
             });
         }
@@ -106,7 +100,7 @@ impl Program {
         Self::from_bytes(&buf)
     }
 
-    pub fn decode(&self) -> Result<Vec<AsmInstr>, BytecodeError> {
+    pub fn decode(&self) -> Result<Vec<AsmInstr>, Error> {
         let mut offset = 0;
         let mut asm = Vec::new();
         loop {
@@ -137,7 +131,7 @@ impl Program {
         if invalid_targets.is_empty() {
             Ok(asm)
         } else {
-            Err(BytecodeError::JumpTargetOutOfProgram(invalid_targets))
+            Err(Error::JumpTargetOutOfProgram(invalid_targets))
         }
     }
 }
@@ -188,7 +182,7 @@ mod tests {
         assert!(
             matches!(
                 &result,
-                Err(BytecodeError::JumpTargetOutOfProgram(bad_jump_targets))
+                Err(Error::JumpTargetOutOfProgram(bad_jump_targets))
                 if *bad_jump_targets == expected
             ),
             "result was {result:?}",
@@ -204,7 +198,7 @@ mod tests {
         assert!(
             matches!(
                 &result,
-                Err(BytecodeError::JumpTargetOutOfProgram(bad_jump_targets))
+                Err(Error::JumpTargetOutOfProgram(bad_jump_targets))
                 if *bad_jump_targets == expected
             ),
             "result was {result:?}",
