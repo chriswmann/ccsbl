@@ -39,10 +39,19 @@ pub fn assemble<'src>(
                     {
                         match next_token {
                             Token::Ident(ident) => {
-                                instrs.push(Instr::Jmp {
-                                    target: ident,
-                                    span,
-                                });
+                                match op {
+                                    Op::Jmp => instrs.push(Instr::Jmp {
+                                        target: ident,
+                                        span,
+                                    }),
+                                    Op::Jlt => instrs.push(Instr::Jlt {
+                                        target: ident,
+                                        span,
+                                    }),
+                                    _ => unreachable!(
+                                        "Already matched on op to identify that we have a jump of some sort"
+                                    ),
+                                }
                                 spans.next();
                             }
                             Token::Op(_) | Token::Label(_) | Token::Value(_) => {
