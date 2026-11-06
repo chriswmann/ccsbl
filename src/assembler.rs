@@ -39,10 +39,19 @@ pub fn assemble<'src>(
                     {
                         match next_token {
                             Token::Ident(ident) => {
-                                instrs.push(Instr::Jmp {
-                                    target: ident,
-                                    span,
-                                });
+                                match op {
+                                    Op::Jmp => instrs.push(Instr::Jmp {
+                                        target: ident,
+                                        span,
+                                    }),
+                                    Op::Jlt => instrs.push(Instr::Jlt {
+                                        target: ident,
+                                        span,
+                                    }),
+                                    _ => unreachable!(
+                                        "Already matched on op to identify that we have a jump of some sort"
+                                    ),
+                                }
                                 spans.next();
                             }
                             Token::Op(_) | Token::Label(_) | Token::Value(_) => {
@@ -379,6 +388,70 @@ mod tests {
         assert_eq!(instrs, expected_instrs);
         assert_eq!(symbols, expected_symbols);
         let expected_asm = vec![AsmInstr::Jmp(0.into()), AsmInstr::Jmp(0.into())];
+        let asm = resolve(Assembled { instrs, symbols }).unwrap();
+        assert_eq!(asm, expected_asm);
+    }
+
+    #[test]
+    fn jlt_is_handled_correctly() {
+        let spans = vec![
+            Spanned {
+                token: Token::Label("jump_back"),
+                span: Span::new(0, 9),
+            },
+            Spanned {
+                token: Token::Value(1),
+                span: Span::new(10, 11),
+            },
+            Spanned {
+                token: Token::Value(2),
+                span: Span::new(12, 13),
+            },
+            Spanned {
+                token: Token::Op(Op::Jlt),
+                span: Span::new(14, 17),
+            },
+            Spanned {
+                token: Token::Ident("jump_back"),
+                span: Span::new(18, 27),
+            },
+            Spanned {
+                token: Token::Op(Op::Jlt),
+                span: Span::new(28, 31),
+            },
+            Spanned {
+                token: Token::Ident("jump_back"),
+                span: Span::new(32, 41),
+            },
+        ];
+        let expected_instrs = vec![
+            Instr::Push {
+                value: 1,
+                span: Span::new(10, 11),
+            },
+            Instr::Push {
+                value: 2,
+                span: Span::new(12, 13),
+            },
+            Instr::Jlt {
+                target: "jump_back",
+                span: Span::new(14, 17),
+            },
+            Instr::Jlt {
+                target: "jump_back",
+                span: Span::new(28, 31),
+            },
+        ];
+        let expected_symbols = HashMap::from([("jump_back", 0.into())]);
+        let Assembled { instrs, symbols } = assemble(spans).unwrap();
+        assert_eq!(instrs, expected_instrs);
+        assert_eq!(symbols, expected_symbols);
+        let expected_asm = vec![
+            AsmInstr::Push(1),
+            AsmInstr::Push(2),
+            AsmInstr::Jlt(0.into()),
+            AsmInstr::Jlt(0.into()),
+        ];
         let asm = resolve(Assembled { instrs, symbols }).unwrap();
         assert_eq!(asm, expected_asm);
     }

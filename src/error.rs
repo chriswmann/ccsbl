@@ -162,7 +162,7 @@ pub fn report<W: Write>(err: impl std::error::Error, w: &mut W) -> io::Result<()
     Ok(())
 }
 
-pub fn report_many<W: Write>(
+pub fn display_multiple_errors<W: Write>(
     errors: &[impl std::error::Error],
     w: &mut W,
 ) -> Result<(), Vec<io::Error>> {
