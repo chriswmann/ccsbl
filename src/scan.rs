@@ -72,7 +72,7 @@ mod tests {
 
     use super::*;
 
-    use crate::token::Op;
+    use crate::token::{JumpKind, Op};
 
     #[test]
     fn a_new_scanner_has_expected_source_and_an_offset_of_0() {
@@ -246,7 +246,7 @@ mod tests {
                 span: Span::new(4, 6),
             },
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(7, 10),
             },
             Spanned {

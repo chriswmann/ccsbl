@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     bytecode::{AsmInstr, Instr, InstructionIndex},
     error::Error,
-    token::{Op, Spanned, Token, TokenKind},
+    token::{JumpKind, Op, Span, Spanned, Token, TokenKind},
 };
 
 #[derive(Debug, Default)]
@@ -31,39 +31,8 @@ pub fn assemble<'src>(
                 Op::Neg => instrs.push(Instr::Neg { span }),
                 Op::Mod => instrs.push(Instr::Mod { span }),
                 Op::Dup => instrs.push(Instr::Dup { span }),
-                Op::Jmp | Op::Jlt => {
-                    if let Some(Spanned {
-                        token: next_token,
-                        span: next_span,
-                    }) = spans.peek()
-                    {
-                        match next_token {
-                            Token::Ident(ident) => {
-                                match op {
-                                    Op::Jmp => instrs.push(Instr::Jmp {
-                                        target: ident,
-                                        span,
-                                    }),
-                                    Op::Jlt => instrs.push(Instr::Jlt {
-                                        target: ident,
-                                        span,
-                                    }),
-                                    _ => unreachable!(
-                                        "Already matched on op to identify that we have a jump of some sort"
-                                    ),
-                                }
-                                spans.next();
-                            }
-                            Token::Op(_) | Token::Label(_) | Token::Value(_) => {
-                                errors.push(Error::NotAJumpLabel {
-                                    token: TokenKind::from(next_token),
-                                    span: next_span.clone(),
-                                });
-                            }
-                        }
-                    } else {
-                        errors.push(Error::MissingJumpLabel { span });
-                    }
+                Op::Jump(jump_kind) => {
+                    handle_jump_ops(jump_kind, span, &mut spans, &mut instrs, &mut errors);
                 }
                 Op::Halt => instrs.push(Instr::Halt { span }),
             },
@@ -90,6 +59,44 @@ pub fn assemble<'src>(
         return Ok(Assembled { instrs, symbols });
     }
     Err(errors)
+}
+
+fn handle_jump_ops<'src>(
+    jump_kind: JumpKind,
+    span: Span,
+    spans: &mut std::iter::Peekable<impl Iterator<Item = Spanned<Token<'src>>>>,
+    instrs: &mut Vec<Instr<'src>>,
+    errors: &mut Vec<Error>,
+) {
+    if let Some(Spanned {
+        token: next_token,
+        span: next_span,
+    }) = spans.peek()
+    {
+        match next_token {
+            Token::Ident(ident) => {
+                match jump_kind {
+                    JumpKind::Jmp => instrs.push(Instr::Jmp {
+                        target: ident,
+                        span,
+                    }),
+                    JumpKind::Jlt => instrs.push(Instr::Jlt {
+                        target: ident,
+                        span,
+                    }),
+                }
+                spans.next();
+            }
+            Token::Op(_) | Token::Label(_) | Token::Value(_) => {
+                errors.push(Error::NotAJumpLabel {
+                    token: TokenKind::from(next_token),
+                    span: next_span.clone(),
+                });
+            }
+        }
+    } else {
+        errors.push(Error::MissingJumpLabel { span });
+    }
 }
 
 pub fn resolve(assembled: Assembled<'_>) -> Result<Vec<AsmInstr>, Vec<Error>> {
@@ -157,7 +164,7 @@ mod tests {
                 span: Span::new(14, 17),
             },
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(18, 21),
             },
             Spanned {
@@ -221,7 +228,7 @@ mod tests {
     fn assemble_returns_expected_report_for_invalid_jump_operand() {
         let spans = vec![
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(0, 3),
             },
             Spanned {
@@ -250,7 +257,7 @@ mod tests {
     fn assemble_returns_expected_report_for_missing_jump_operand() {
         let spans = vec![
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(0, 3),
             },
             Spanned {
@@ -273,7 +280,7 @@ mod tests {
         }
 
         let spans = vec![Spanned {
-            token: Token::Op(Op::Jmp),
+            token: Token::Op(Op::Jump(JumpKind::Jmp)),
             span: Span::new(100, 103),
         }];
         match assemble(spans) {
@@ -299,7 +306,7 @@ mod tests {
                 span: Span::new(0, 10),
             },
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(11, 14),
             },
             Spanned {
@@ -324,7 +331,7 @@ mod tests {
     fn jump_forward_is_handled_correctly() {
         let spans = vec![
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(0, 3),
             },
             Spanned {
@@ -357,7 +364,7 @@ mod tests {
                 span: Span::new(0, 9),
             },
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(10, 13),
             },
             Spanned {
@@ -365,7 +372,7 @@ mod tests {
                 span: Span::new(14, 23),
             },
             Spanned {
-                token: Token::Op(Op::Jmp),
+                token: Token::Op(Op::Jump(JumpKind::Jmp)),
                 span: Span::new(24, 27),
             },
             Spanned {
@@ -412,7 +419,7 @@ mod tests {
                 span: Span::new(14, 15),
             },
             Spanned {
-                token: Token::Op(Op::Jlt),
+                token: Token::Op(Op::Jump(JumpKind::Jlt)),
                 span: Span::new(16, 19),
             },
             Spanned {
@@ -420,7 +427,7 @@ mod tests {
                 span: Span::new(20, 29),
             },
             Spanned {
-                token: Token::Op(Op::Jlt),
+                token: Token::Op(Op::Jump(JumpKind::Jlt)),
                 span: Span::new(30, 33),
             },
             Spanned {

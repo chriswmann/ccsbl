@@ -24,8 +24,8 @@ impl<'src> Token<'src> {
             "dup" => Token::Op(Op::Dup),
             "pop" => Token::Op(Op::Pop),
             "print" => Token::Op(Op::Print),
-            "jmp" => Token::Op(Op::Jmp),
-            "jlt" => Token::Op(Op::Jlt),
+            "jmp" => Token::Op(Op::Jump(JumpKind::Jmp)),
+            "jlt" => Token::Op(Op::Jump(JumpKind::Jlt)),
             "halt" => Token::Op(Op::Halt),
             other => {
                 if let Some(label) = other.strip_suffix(':') {
@@ -113,10 +113,15 @@ pub enum Op {
     // Not,    // ( a -- ~a )	Bitwise complement
     // LShift, // ( a n -- a << n )	Shift a left by n bits
     // RShift, // ( a n -- a >> n )	Shift a right by n bits
-    Jmp, // (  -- )
-    Jlt, // (a b -- ) jump if a < b
+    Jump(JumpKind), // (  -- )
     // Jgt,     // (a b -- ) jump if a > b
     Halt, // end program
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, strum::Display)]
+pub enum JumpKind {
+    Jmp,
+    Jlt,
 }
 
 #[cfg(test)]
@@ -137,8 +142,8 @@ mod tests {
             ("mod", Token::Op(Op::Mod)),
             ("%", Token::Op(Op::Mod)),
             ("neg", Token::Op(Op::Neg)),
-            ("jmp", Token::Op(Op::Jmp)),
-            ("jlt", Token::Op(Op::Jlt)),
+            ("jmp", Token::Op(Op::Jump(JumpKind::Jmp))),
+            ("jlt", Token::Op(Op::Jump(JumpKind::Jlt))),
             ("halt", Token::Op(Op::Halt)),
             ("1", Token::Value(1)),
             ("label:", Token::Label("label")),
