@@ -396,61 +396,70 @@ mod tests {
     fn jlt_is_handled_correctly() {
         let spans = vec![
             Spanned {
+                token: Token::Value(9),
+                span: Span::new(0, 1),
+            },
+            Spanned {
                 token: Token::Label("jump_back"),
-                span: Span::new(0, 9),
+                span: Span::new(2, 11),
             },
             Spanned {
                 token: Token::Value(1),
-                span: Span::new(10, 11),
-            },
-            Spanned {
-                token: Token::Value(2),
                 span: Span::new(12, 13),
             },
             Spanned {
-                token: Token::Op(Op::Jlt),
-                span: Span::new(14, 17),
-            },
-            Spanned {
-                token: Token::Ident("jump_back"),
-                span: Span::new(18, 27),
+                token: Token::Value(2),
+                span: Span::new(14, 15),
             },
             Spanned {
                 token: Token::Op(Op::Jlt),
-                span: Span::new(28, 31),
+                span: Span::new(16, 19),
             },
             Spanned {
                 token: Token::Ident("jump_back"),
-                span: Span::new(32, 41),
+                span: Span::new(20, 29),
+            },
+            Spanned {
+                token: Token::Op(Op::Jlt),
+                span: Span::new(30, 33),
+            },
+            Spanned {
+                token: Token::Ident("jump_back"),
+                span: Span::new(34, 43),
             },
         ];
         let expected_instrs = vec![
             Instr::Push {
+                value: 9,
+                span: Span::new(0, 1),
+            },
+            Instr::Push {
                 value: 1,
-                span: Span::new(10, 11),
+                span: Span::new(12, 13),
             },
             Instr::Push {
                 value: 2,
-                span: Span::new(12, 13),
+                span: Span::new(14, 15),
             },
             Instr::Jlt {
                 target: "jump_back",
-                span: Span::new(14, 17),
+                span: Span::new(16, 19),
             },
             Instr::Jlt {
                 target: "jump_back",
-                span: Span::new(28, 31),
+                span: Span::new(30, 33),
             },
         ];
-        let expected_symbols = HashMap::from([("jump_back", 0.into())]);
+        let expected_symbols = HashMap::from([("jump_back", 1.into())]);
         let Assembled { instrs, symbols } = assemble(spans).unwrap();
         assert_eq!(instrs, expected_instrs);
         assert_eq!(symbols, expected_symbols);
         let expected_asm = vec![
+            AsmInstr::Push(9),
             AsmInstr::Push(1),
             AsmInstr::Push(2),
-            AsmInstr::Jlt(0.into()),
-            AsmInstr::Jlt(0.into()),
+            AsmInstr::Jlt(1.into()),
+            AsmInstr::Jlt(1.into()),
         ];
         let asm = resolve(Assembled { instrs, symbols }).unwrap();
         assert_eq!(asm, expected_asm);
